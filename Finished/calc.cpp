@@ -10,6 +10,7 @@ MULTIPLY,
 DIVIDE
 };
 
+bool error{};
 std::string get_operators(const std::string &input);
 std::vector<double> get_numbers(const std::string &input_string);
 void sort_equation(std::string &input, std::vector<double> &numbers);
@@ -37,6 +38,7 @@ int main()
     std::vector<double> numbers{get_numbers(equation)};
 
     double result {calculation(operators, numbers)};
+    if(error) return 1;
     std::cout << "\n" << result << std::endl;
 
     return 0;
@@ -101,6 +103,8 @@ double calculation(std::string &operators, std::vector<double> &numbers)
 {
     double result{};
     double result_of_previous{};
+    if(operators.length()>=numbers.size()) goto malformed_expression;
+    if(!operators.length()) goto malformed_expression;
     sort_equation(operators, numbers);
 
     for(uint i=0; i<operators.size(); i++)
@@ -114,10 +118,13 @@ double calculation(std::string &operators, std::vector<double> &numbers)
         else result_of_previous = evaluate_two_numbers(result_of_previous, numbers[i+1], selected_operator);
     }
     result = result_of_previous;
-    
-
-
     return result;
+    malformed_expression:
+    std::cout << "\nYou entered a malformed expression.\n";
+    error=true;
+    return 0.0f;
+
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -204,6 +211,7 @@ void sort_equation(std::string &input, std::vector<double> &numbers)
         }
     }
     return;
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
