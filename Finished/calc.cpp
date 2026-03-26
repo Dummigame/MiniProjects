@@ -12,8 +12,9 @@ DIVIDE
 
 std::string get_operators(const std::string &input);
 std::vector<double> get_numbers(const std::string &input_string);
+void sort_equation(std::string &input, std::vector<double> &numbers);
 
-double calculation(const std::string &operators, const std::vector<double> &numbers);
+double calculation(std::string &operators, std::vector<double> &numbers);
 
 double add(double a, double b);
 double subtract(double a, double b);
@@ -96,10 +97,11 @@ std::vector<double> get_numbers(const std::string &input_string)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-double calculation(const std::string &operators, const std::vector<double> &numbers)
+double calculation(std::string &operators, std::vector<double> &numbers)
 {
     double result{};
     double result_of_previous{};
+    sort_equation(operators, numbers);
 
     for(uint i=0; i<operators.size(); i++)
     {
@@ -177,3 +179,31 @@ double evaluate_two_numbers(const double &input_a, const double &input_b, const 
 
     return result;
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void sort_equation(std::string &input, std::vector<double> &numbers)
+{
+    char swapOperator;
+    double swapNumber;
+    for(int i_=0; i_<input.length(); i_++)
+    {
+        for(int i=1; i<=input.length(); i++)
+        {
+            if((input[i]== '*' || input[i]=='/') && (input[i-1]=='+' || input[i-1]=='-'))
+            {
+                swapOperator = input[i];
+                swapNumber = numbers[i+1];
+
+                numbers[i+1] = numbers[i];
+                input[i] = input[i-1];
+
+                numbers[i] = swapNumber;
+                input[i-1] = swapOperator;
+            }
+        }
+    }
+    return;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
