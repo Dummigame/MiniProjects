@@ -5,7 +5,6 @@
 bool sanitize_equation(std::string &equation);
 std::string get_operators(const std::string &input);
 std::vector<double> get_numbers(const std::string &input_string);
-std::vector<double> multiply_and_divide(const std::string &operators, const std::vector<double> &numbers, uint &i, std::vector<double> &new_numbers);
 double calculation(std::string &operators, std::vector<double> &numbers);
 double evaluate_two_numbers(const double &input_a, const double &input_b, const char selected_operator);
 
