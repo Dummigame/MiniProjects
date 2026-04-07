@@ -2,8 +2,6 @@
 #include <string>
 #include <vector>
 
-//Todo: Make negative numbers consistently get their sign (Line 70)
-
 bool sanitize_equation(std::string &equation);
 std::string get_operators(const std::string &input);
 std::vector<double> get_numbers(const std::string &input_string);
