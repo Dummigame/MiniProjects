@@ -128,7 +128,7 @@ double calculation(std::string &operators, std::vector<double> &numbers)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+/*
 double add(const double a, const double b)
 {
     return a+b;
@@ -145,7 +145,7 @@ double divide(const double a, const double b)
 {
     return a/b;
 }
-
+*/
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 operator_names_t select_operator(const char &input)
@@ -178,10 +178,10 @@ double evaluate_two_numbers(const double &input_a, const double &input_b, const 
 
     switch (selected_operator)
     {
-        case ADD: {result=add(input_a, input_b); break;}
-        case SUBTRACT: {result=subtract(input_a, input_b); break;}
-        case MULTIPLY: {result=multiply(input_a, input_b); break;}
-        case DIVIDE: {result=divide(input_a, input_b); break;}
+        case ADD: {result=input_a+input_b; break;}
+        case SUBTRACT: {result=input_a-input_b; break;}
+        case MULTIPLY: {result=input_a*input_b; break;}
+        case DIVIDE: {result=input_a/input_b; break;}
     }
 
     return result;
