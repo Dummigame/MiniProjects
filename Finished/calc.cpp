@@ -113,7 +113,7 @@ double calculation(std::string &operators, std::vector<double> &numbers)
                 for(int i__=operators.length(); i__>=0; i__--)
                 {
                     if(operators[i__]=='^')
-                    {                    
+                    {
                         result_of_previous=evaluate_two_numbers(numbers[i__], numbers[i__+1], operators[i__]);
                         if(numbers[i__]<0) operators.erase(operators.begin()+i__);
 
@@ -151,10 +151,11 @@ double calculation(std::string &operators, std::vector<double> &numbers)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool sanitize_equation(std::string &equation) 
+bool sanitize_equation(std::string &equation)
 {
     bool is_unsavable{};
     bool sanitization_required{};
+
 
     //Removes garbage and operators before start of equation
     for(int i__{}; i__<=equation.length(); i__++)
@@ -175,6 +176,8 @@ bool sanitize_equation(std::string &equation)
             i_--;
             sanitization_required=true;
         }
+        int final_element{equation.length()-1};
+        if(equation[final_element] == '+' || equation[final_element] == '*' || equation[final_element] == '/' || equation[final_element] == '^') equation.erase(--equation.end());
     }
 
     for(long unsigned int i{}; i<equation.length(); i++)
