@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-
+#include <math.h>
 bool sanitize_equation(std::string &equation);
 std::string get_operators(const std::string &input);
 std::vector<double> get_numbers(const std::string &input_string);
@@ -15,14 +15,15 @@ int main()
 {
     double result{};
     std::string equation;
-    std::cout << "Type your equation (+-*/ allowed):\n";
+    std::cout << "Type your equation (+-*/^ allowed, implicit parentheses around exponents):\n";
     std::getline(std::cin, equation);
     if(equation.length()<3)
     {
         std::cout << "Equation too short! Exiting.\n";
         return 0;
     }
-    bool broken_equation=sanitize_equation(equation);
+    bool broken_equation{};
+    broken_equation=sanitize_equation(equation);
     if(broken_equation)
     {
         std::cout << "Your equation could not be sanitized! Exiting.\n";
@@ -50,7 +51,7 @@ std::string get_operators(const std::string &input)
     std::string operators;
     for(long unsigned int i=0; i<input.length(); i++)
     {
-        if(input[i] == '+' || input[i] == '*' || input[i] == '/') operators.push_back(input[i]);
+        if(input[i] == '+' || input[i] == '*' || input[i] == '/' || input[i] == '^') operators.push_back(input[i]);
         if(input[i]=='-'&&i!=0) operators.push_back('+');
     }
     return operators;
@@ -101,14 +102,30 @@ std::vector<double> get_numbers(const std::string &input_string)
 double calculation(std::string &operators, std::vector<double> &numbers)
 {
     double result_of_previous{};
-    uint passes{1};
-    uint offset{};
+    uint passes{2};
 
     for(long unsigned int i_{}; i_<=passes; i_++)
     {
         for(int i{}; i<operators.length(); i++)
         {
-            if((operators[i]=='/' || operators[i]=='*') && i_==0)
+            if(i_==0 && i==0)
+            {
+                for(int i__=operators.length(); i__>=0; i__--)
+                {
+                    if(operators[i__]=='^')
+                    {                    
+                        result_of_previous=evaluate_two_numbers(numbers[i__], numbers[i__+1], operators[i__]);
+                        if(numbers[i__]<0) operators.erase(operators.begin()+i__);
+
+                        numbers[i__+1]=result_of_previous;
+                        numbers.erase(numbers.begin()+i__);
+                        operators.erase(operators.begin()+i__);
+                        i__++;
+                        continue;
+                    }
+                }
+            }
+            if((operators[i]=='/' || operators[i]=='*') && i_==1)
             {
                 //Replaces calculated two-number equation with its result and removes the used operator and numbers
                 result_of_previous=evaluate_two_numbers(numbers[i], numbers[i+1], operators[i]);
@@ -118,11 +135,11 @@ double calculation(std::string &operators, std::vector<double> &numbers)
                 numbers[i]=result_of_previous;
                 numbers.erase(numbers.begin()+i+1);
                 operators.erase(operators.begin()+i);
-                offset++;
                 i--;
+                continue;
                 //I feel smart now
             }
-            else if((operators[i]=='+') && i_==1)
+            else if((operators[i]=='+') && i_==2)
             {
                 if(i==0) result_of_previous=evaluate_two_numbers(numbers[0], numbers[1], operators[i]);
                 else result_of_previous = evaluate_two_numbers(result_of_previous, numbers[i+1], operators[i]);
@@ -152,7 +169,7 @@ bool sanitize_equation(std::string &equation)
     //Removes garbage in equation
     for(int i_{}; i_<equation.length(); i_++)
     {
-        if(!(equation[i_]>='0' && equation[i_]<='9') && equation[i_]!='-' && equation[i_]!='+' && equation[i_]!= '*' && equation[i_]!= '/' && equation[i_]!='.')
+        if(!(equation[i_]>='0' && equation[i_]<='9') && equation[i_]!='-' && equation[i_]!='+' && equation[i_]!= '*' && equation[i_]!= '/' && equation[i_]!='.' && equation[i_]!='^')
         {
             equation.erase(equation.begin()+i_);
             i_--;
@@ -170,6 +187,7 @@ bool sanitize_equation(std::string &equation)
                 equation.erase(equation.begin()+i+1);
                 if(i==0) equation.erase(equation.begin());
                 sanitization_required=true;
+                if(i>1) if((equation[i-1]=='*' || equation[i-1]=='/' || equation[i-1]=='+' || equation[i-1]=='^')) equation.erase(equation.begin()+i);
             }
             if((equation[i]=='+' && equation[i+1]=='+') || (equation[i]=='+' && equation[i+1]=='-'))
             {
@@ -177,7 +195,7 @@ bool sanitize_equation(std::string &equation)
             }
             if(equation[i]=='-' && equation[i+1]=='+') is_unsavable=true;
 
-            if(((equation[i]=='*' || equation[i]=='/' || equation[i]=='+') && (equation[i+1]=='*' || equation[i+1]=='/' || equation[i+1]=='+')))
+            if(((equation[i]=='*' || equation[i]=='/' || equation[i]=='+' || equation[i]=='^') && (equation[i+1]=='*' || equation[i+1]=='/' || equation[i+1]=='+' || equation[i+1]=='^')))
             {
                 is_unsavable=true;
             }
@@ -205,6 +223,7 @@ double evaluate_two_numbers(const double &input_a, const double &input_b, const 
         case '-': {result=input_a-input_b; break;}
         case '*': {result=input_a*input_b; break;}
         case '/': {result=(double)input_a/(double)input_b; break;}
+        case '^': {result=std::pow(input_a,input_b); break;}
     }
 
     return result;
