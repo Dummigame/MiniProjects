@@ -52,7 +52,7 @@ std::string get_operators(const std::string &input)
     for(long unsigned int i=0; i<input.length(); i++)
     {
         if(input[i] == '+' || input[i] == '*' || input[i] == '/' || input[i] == '^') operators.push_back(input[i]);
-        if(input[i]=='-'&&i!=0) operators.push_back('+');
+        if(input[i]=='-' && i!=0 && input[i-1]!= '^' && input[i-1]!= '*' && input[i-1]!= '/' && input[i-1]!= '+' ) operators.push_back('+');
     }
     return operators;
 }
@@ -113,11 +113,17 @@ double calculation(std::string &operators, std::vector<double> &numbers)
                 for(int i__=operators.length(); i__>=0; i__--)
                 {
                     if(operators[i__]=='^')
-                    {
+                    {                    
                         result_of_previous=evaluate_two_numbers(numbers[i__], numbers[i__+1], operators[i__]);
-                        if(numbers[i__]<0) operators.erase(operators.begin()+i__);
+                        //if(numbers[i__]<0) operators.erase(operators.begin()+i__);
 
                         numbers[i__+1]=result_of_previous;
+                        if(numbers[i__]<0 && numbers[i__+1]>0)
+                        {
+                            numbers[i__+1]=(result_of_previous*(-1));
+                            result_of_previous=result_of_previous*(-1);
+                        }
+                        
                         numbers.erase(numbers.begin()+i__);
                         operators.erase(operators.begin()+i__);
                         i__++;
@@ -151,7 +157,7 @@ double calculation(std::string &operators, std::vector<double> &numbers)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool sanitize_equation(std::string &equation)
+bool sanitize_equation(std::string &equation) 
 {
     bool is_unsavable{};
     bool sanitization_required{};
