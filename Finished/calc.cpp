@@ -110,10 +110,10 @@ double calculation(std::string &operators, std::vector<double> &numbers)
         {
             if(i_==0 && i==0)
             {
-                for(int i__=operators.length(); i__>0; i__--)
+                for(int i__=operators.length(); i__>=0; i__--)
                 {
                     if(operators[i__]=='^')
-                    {                    
+                    {
                         result_of_previous=evaluate_two_numbers(numbers[i__], numbers[i__+1], operators[i__]);
                         if(numbers[i__]<0) operators.erase(operators.begin()+i__);
 
@@ -151,7 +151,7 @@ double calculation(std::string &operators, std::vector<double> &numbers)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool sanitize_equation(std::string &equation) 
+bool sanitize_equation(std::string &equation)
 {
     bool is_unsavable{};
     bool sanitization_required{};
@@ -168,12 +168,12 @@ bool sanitize_equation(std::string &equation)
     }
 
     //Removes garbage in equation
-    for(long int i_{}; i_<equation.length(); i_++)
+    for(long unsigned int i_{}; i_<equation.length(); i_++)
     {
         if(!(equation[i_]>='0' && equation[i_]<='9') && equation[i_]!='-' && equation[i_]!='+' && equation[i_]!= '*' && equation[i_]!= '/' && equation[i_]!='.' && equation[i_]!='^')
         {
             equation.erase(equation.begin()+i_);
-            i_--;
+            i_--; //Yes this causes an underflow but it doesn't matter since it is the last time i_ is used before being incremented again
             sanitization_required=true;
         }
         long unsigned int final_element{equation.length()-1};
