@@ -15,7 +15,7 @@ int main()
 {
     double result{};
     std::string equation;
-    std::cout << "Type your equation (+-*/^ allowed, implicit parentheses around exponents):\n";
+    std::cout << "Type your equation (+-*/^ allowed):\n";
     std::getline(std::cin, equation);
     if(equation.length()<3)
     {
@@ -106,14 +106,14 @@ double calculation(std::string &operators, std::vector<double> &numbers)
 
     for(long unsigned int i_{}; i_<=passes; i_++)
     {
-        for(int i{}; i<operators.length(); i++)
+        for(long unsigned int i{}; i<operators.length(); i++)
         {
             if(i_==0 && i==0)
             {
-                for(int i__=operators.length(); i__>=0; i__--)
+                for(int i__=operators.length(); i__>0; i__--)
                 {
                     if(operators[i__]=='^')
-                    {
+                    {                    
                         result_of_previous=evaluate_two_numbers(numbers[i__], numbers[i__+1], operators[i__]);
                         if(numbers[i__]<0) operators.erase(operators.begin()+i__);
 
@@ -151,7 +151,7 @@ double calculation(std::string &operators, std::vector<double> &numbers)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool sanitize_equation(std::string &equation)
+bool sanitize_equation(std::string &equation) 
 {
     bool is_unsavable{};
     bool sanitization_required{};
@@ -168,7 +168,7 @@ bool sanitize_equation(std::string &equation)
     }
 
     //Removes garbage in equation
-    for(int i_{}; i_<equation.length(); i_++)
+    for(long int i_{}; i_<equation.length(); i_++)
     {
         if(!(equation[i_]>='0' && equation[i_]<='9') && equation[i_]!='-' && equation[i_]!='+' && equation[i_]!= '*' && equation[i_]!= '/' && equation[i_]!='.' && equation[i_]!='^')
         {
@@ -176,7 +176,7 @@ bool sanitize_equation(std::string &equation)
             i_--;
             sanitization_required=true;
         }
-        int final_element{equation.length()-1};
+        long unsigned int final_element{equation.length()-1};
         if(equation[final_element] == '+' || equation[final_element] == '*' || equation[final_element] == '/' || equation[final_element] == '^') equation.erase(--equation.end());
     }
 
