@@ -2,20 +2,21 @@
 #include <string>
 #include <vector>
 #include <math.h>
+#include <sstream>
 bool sanitize_equation(std::string &equation);
 std::string get_operators(const std::string &input);
-std::vector<double> get_numbers(const std::string &input_string);
-double calculation(std::string &operators, std::vector<double> &numbers);
-double evaluate_two_numbers(const double &input_a, const double &input_b, const char selected_operator);
+std::vector<long double> get_numbers(const std::string &input_string);
+long double calculation(std::string &operators, std::vector<long double> &numbers);
+long double evaluate_two_numbers(const long double &input_a, const long double &input_b, const char selected_operator);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int main()
 {
-    double result{};
+    long double result{};
     std::string equation;
-    std::cout << "Type your equation (+-*/^ allowed):\n";
+    std::cout << "Type your equation (+-*/^ allowed):\n=> ";
     std::getline(std::cin, equation);
     if(equation.length()<3)
     {
@@ -26,11 +27,11 @@ int main()
     broken_equation=sanitize_equation(equation);
     if(broken_equation)
     {
-        std::cout << "Your equation could not be sanitized! Exiting.\n";
+        std::cout << "\n==============================================\nYour equation could not be sanitized! Exiting.\n==============================================\n";
         return 0;
     }
     std::string operators {get_operators(equation)};
-    std::vector<double> numbers{get_numbers(equation)};
+    std::vector<long double> numbers{get_numbers(equation)};
     if(numbers.size()<2)
     {
         std::cout << equation << std::endl;
@@ -38,7 +39,16 @@ int main()
     }
 
     result=calculation(operators, numbers);
-    std::cout << "\n" << result << std::endl;
+
+    std::ostringstream result_as_string;
+    result_as_string << result;
+    equation=result_as_string.str();
+
+
+    for(unsigned long int i{}; i<equation.length()+2; i++) std::cout <<"=";
+    std::cout << "\n " << result << std::endl;
+    for(unsigned long int i{}; i<equation.length()+2; i++) std::cout <<"=";
+    std::cout << "\n";
 
     return 0;
 }
@@ -59,9 +69,9 @@ std::string get_operators(const std::string &input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<double> get_numbers(const std::string &input_string)
+std::vector<long double> get_numbers(const std::string &input_string)
 {
-    std::vector<double> numbers;
+    std::vector<long double> numbers;
 
     uint offset=0;
     uint offset_negative_number{};
@@ -90,7 +100,7 @@ std::vector<double> get_numbers(const std::string &input_string)
                 break;
             }
         }
-        if(number_present==true) numbers.push_back (std::stod(current_number));
+        if(number_present==true) numbers.push_back (std::stold(current_number));
         number_present=false;
         current_number.clear();
     }
@@ -99,9 +109,9 @@ std::vector<double> get_numbers(const std::string &input_string)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-double calculation(std::string &operators, std::vector<double> &numbers)
+long double calculation(std::string &operators, std::vector<long double> &numbers)
 {
-    double result_of_previous{};
+    long double result_of_previous{};
     uint passes{2};
 
     for(long unsigned int i_{}; i_<=passes; i_++)
@@ -115,7 +125,6 @@ double calculation(std::string &operators, std::vector<double> &numbers)
                     if(operators[i__]=='^')
                     {
                         result_of_previous=evaluate_two_numbers(numbers[i__], numbers[i__+1], operators[i__]);
-                        //if(numbers[i__]<0) operators.erase(operators.begin()+i__);
 
                         numbers[i__+1]=result_of_previous;
                         if(numbers[i__]<0 && numbers[i__+1]>0)
@@ -169,6 +178,12 @@ bool sanitize_equation(std::string &equation)
         if(!(equation[i__]>='0' && equation[i__]<='9') && equation[i__]!='-')
         {
             equation.erase(equation.begin());
+            if(!equation.length())
+            {
+                is_unsavable=true;
+                break;
+            }
+            i__--;
         }
         else break;
     }
@@ -204,7 +219,7 @@ bool sanitize_equation(std::string &equation)
             }
             if(equation[i]=='-' && equation[i+1]=='+') is_unsavable=true;
 
-            if(((equation[i]=='*' || equation[i]=='/' || equation[i]=='+' || equation[i]=='^') && (equation[i+1]=='*' || equation[i+1]=='/' || equation[i+1]=='+' || equation[i+1]=='^')))
+            if(((equation[i]=='*' || equation[i]=='/' || equation[i]=='+' || equation[i]=='^' || equation[i]=='-') && (equation[i+1]=='*' || equation[i+1]=='/' || equation[i+1]=='+' || equation[i+1]=='^')))
             {
                 is_unsavable=true;
             }
@@ -215,23 +230,23 @@ bool sanitize_equation(std::string &equation)
         }
     }
     if(equation.length()<3) return true; // <3
-    if(sanitization_required && !is_unsavable) std::cout << "\n=================================================================\n|| Your equation had to be sanitized. Output may be incorrect! ||\n=================================================================\n";
+    if(sanitization_required && !is_unsavable) std::cout << "\n=================================================================\n|| Your equation had to be sanitized. Output may be incorrect! ||\n=================================================================\nNew equation: " << equation << "\n";
     return is_unsavable;
 }
 //The fact that it sanitizes anything is funny because you can use this to calculate some keyboard smashes
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-double evaluate_two_numbers(const double &input_a, const double &input_b, const char selected_operator)
+long double evaluate_two_numbers(const long double &input_a, const long double &input_b, const char selected_operator)
 {
-    double result{};
+    long double result{};
 
     switch (selected_operator)
     {
         case '+': {result=input_a+input_b; break;}
         case '-': {result=input_a-input_b; break;}
         case '*': {result=input_a*input_b; break;}
-        case '/': {result=(double)input_a/(double)input_b; break;}
+        case '/': {result=(long double)input_a/(long double)input_b; break;}
         case '^': {result=std::pow(input_a,input_b); break;}
     }
 
