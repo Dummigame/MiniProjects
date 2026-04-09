@@ -6,8 +6,18 @@
 bool sanitize_equation(std::string &equation);
 std::string get_operators(const std::string &input);
 std::vector<long double> get_numbers(const std::string &input_string);
-long double calculation(std::string &operators, std::vector<long double> &numbers);
 long double evaluate_two_numbers(const long double &input_a, const long double &input_b, const char selected_operator);
+void make_implicit_multiplication_explicit(std::string &equation);
+long double calculation(std::string &operators, std::vector<long double> &numbers);
+long double calculation_caller(std::string &initial_equation);
+long double calculation_caller_caller(std::string &initial_equation); //Take this program very seriously.
+
+enum 
+{
+    EXPONENTIATION,
+    MULTIPLICATION,
+    ADDITION
+} operation;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -16,7 +26,8 @@ int main()
 {
     long double result{};
     std::string equation;
-    std::cout << "Type your equation (+-*/^ allowed):\n=> ";
+    std::cout << "Type your equation (+-*/^ and parentheses =>() allowed):\n=> ";
+    
     std::getline(std::cin, equation);
     if(equation.length()<3)
     {
@@ -31,6 +42,7 @@ int main()
         std::cout << "\n==============================================\nYour equation could not be sanitized! Exiting.\n==============================================\n";
         return 0;
     }
+    make_implicit_multiplication_explicit(equation);
     std::string operators {get_operators(equation)};
     std::vector<long double> numbers{get_numbers(equation)};
 
@@ -46,7 +58,7 @@ int main()
         return 0;
     }
 
-    result=calculation(operators, numbers);
+    result=calculation_caller_caller(equation);
 
     std::ostringstream result_as_string;
     result_as_string << result;
@@ -119,14 +131,15 @@ std::vector<long double> get_numbers(const std::string &input_string)
 
 long double calculation(std::string &operators, std::vector<long double> &numbers)
 {
+    if(operators.length()==0) return numbers.at(0);
     long double result_of_previous{};
     uint passes{2};
 
     for(long unsigned int i_{}; i_<=passes; i_++)
     {
-        for(long unsigned int i{}; i<operators.length(); i++)
+        for(long unsigned int i{EXPONENTIATION}; i<operators.length(); i++)
         {
-            if(i_==0 && i==0)
+            if(i_==0 && i==EXPONENTIATION)
             {
                 for(int i__=operators.length()-1; i__>=0; i__--)
                 {
@@ -148,7 +161,7 @@ long double calculation(std::string &operators, std::vector<long double> &number
                 }
             }
             if(!operators.length()) continue;
-            if((operators.at(i)=='/' || operators.at(i)=='*') && i_==1)
+            if((operators.at(i)=='/' || operators.at(i)=='*') && i_==MULTIPLICATION)
             {
                 //Replaces calculated two-number equation with its result and removes the used operator and numbers
                 result_of_previous=evaluate_two_numbers(numbers.at(i), numbers.at(i+1), operators.at(i));
@@ -160,7 +173,7 @@ long double calculation(std::string &operators, std::vector<long double> &number
                 continue;
                 //I feel smart now
             }
-            else if(operators.at(i)=='+' && i_==2)
+            else if(operators.at(i)=='+' && i_==ADDITION)
             {
                 if(i==0) result_of_previous=evaluate_two_numbers(numbers.at(0), numbers.at(1), operators.at(i));
                 else result_of_previous = evaluate_two_numbers(result_of_previous, numbers.at(i+1), operators.at(i));
@@ -184,7 +197,7 @@ bool sanitize_equation(std::string &equation)
     //Removes garbage and operators before start of equation
     for(int i__{}; i__<=equation.length(); i__++)
     {
-        if(!(equation.at(i__)>='0' && equation.at(i__)<='9') && equation.at(i__)!='-')
+        if(!(equation.at(i__)>='0' && equation.at(i__)<='9') && equation.at(i__)!='-' && equation.at(i__)!='(')
         {
             equation.erase(equation.begin());
             if(!equation.length())
@@ -201,7 +214,7 @@ bool sanitize_equation(std::string &equation)
     //Removes garbage in equation
     for(long unsigned int i_{}; i_<equation.length(); i_++)
     {
-        if(!(equation.at(i_)>='0' && equation.at(i_)<='9') && equation.at(i_)!='-' && equation.at(i_)!='+' && equation.at(i_)!= '*' && equation.at(i_)!= '/' && equation.at(i_)!='.' && equation.at(i_)!='^')
+        if(!(equation.at(i_)>='0' && equation.at(i_)<='9') && equation.at(i_)!='-' && equation.at(i_)!='+' && equation.at(i_)!= '*' && equation.at(i_)!= '/' && equation.at(i_)!='.' && equation.at(i_)!='^' && equation.at(i_)!='('&& equation.at(i_)!=')')
         {
             equation.erase(equation.begin()+i_);
             i_--; //Yes this causes an underflow but it doesn't matter since it is the last time i_ is used before being incremented again
@@ -256,9 +269,18 @@ bool sanitize_equation(std::string &equation)
     for(unsigned long i___{}; i___<equation.length(); i___++)
     {
         if((equation.at(i___)>='0' && equation.at(i___)<='9') || equation.at(i___)=='-') digits++;
-        else symbols++;
+        else if (equation.at(i___)!='(' && equation.at(i___)!=')' )symbols++;
     }
+
+    uint parentheses_imbalance{};
+    for(unsigned long i____{}; i____<equation.length(); i____++)
+    {
+        if(equation.at(i____)=='(') parentheses_imbalance++;
+        if(equation.at(i____)==')') parentheses_imbalance--;
+    }
+
     if(symbols >= digits) is_unsavable=true;
+    if(parentheses_imbalance) is_unsavable=true;
     if(equation.length()<3) return true; // <3
     if(sanitization_required && !is_unsavable) std::cout << "\n=================================================================\n|| Your equation had to be sanitized. Output may be incorrect! ||\n=================================================================\nNew equation: " << equation << "\n";
     return is_unsavable;
@@ -284,3 +306,165 @@ long double evaluate_two_numbers(const long double &input_a, const long double &
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+long double calculation_caller(std::string &initial_equation)
+{
+    static int recursion_count{};
+    static int nesting_levels_calculated{};
+    long double result{};
+    bool broken_equation{};
+    std::string equation{};
+    int nesting_levels_inside{};
+    static int nesting_levels_found{};
+    long double intermediate_result{};
+    std::string intermediate_result_as_string{};
+    std::string intermediate_equation{};
+    int nested_characters_count{2}; //Initialized 2 because of parentheses
+
+    if((initial_equation.find('(') != std::string::npos) && (nesting_levels_found>nesting_levels_calculated || recursion_count==0))
+    {
+        nesting_levels_found++;
+        //Recurse until no more parentheses in found, then substitute part in parentheses for result of innermost, return, go again
+        for(unsigned long i{}; i<initial_equation.length(); i++)
+        {
+            if(initial_equation.at(i)=='(')
+            {
+                for(unsigned long j=i+1; j<initial_equation.length(); j++)
+                {
+                    //What this does: if you have i.e. 3+3(2+1(4+2)) it will call this same function with 2+1(4+2) and then 4+2   
+                    if(initial_equation.at(j)=='(')nesting_levels_inside++;
+                    else if(initial_equation.at(j)==')') nesting_levels_inside--;
+                    if(nesting_levels_inside>=0) nested_characters_count++;
+
+                    if(nesting_levels_inside<0)
+                    {
+                        recursion_count++;
+                        intermediate_result=calculation_caller(equation); //Recurse when parentheses of current closes
+                        recursion_count--;
+                        std::ostringstream result_as_string;
+                        result_as_string << intermediate_result;
+                        intermediate_result_as_string=result_as_string.str();
+
+                        for(unsigned long l=0; l<initial_equation.length(); l++)
+                        {
+                            if(initial_equation.at(l)=='(')
+                            {
+                                initial_equation.erase(l,nested_characters_count);
+                                initial_equation.insert(l, intermediate_result_as_string);
+                                l+=nested_characters_count+1;
+                            }
+                            //else intermediate_equation.push_back(initial_equation.at(l));
+                            equation=initial_equation;
+                        }
+
+                    }
+                    else equation.push_back(initial_equation.at(j));
+                }
+            
+            }
+        }
+    }
+    else equation=initial_equation;
+
+    std::string operators {get_operators(equation)};
+    std::vector<long double> numbers{get_numbers(equation)};
+    if(operators.size()==0)return numbers.at(0);
+
+    if(numbers.size()<= operators.size())
+    {
+        broken_equation=true;
+    }
+
+    if(numbers.size()<2)
+    {
+        std::cout << equation << std::endl;
+        return 0;
+    }
+
+
+    result=calculation(operators, numbers);
+    nesting_levels_calculated++;
+    return result;
+
+    error:
+    // Bad thing
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+long double calculation_caller_caller(std::string &initial_equation)
+{
+    std::vector<int> relevant_indexes;
+    int nested_sets{};
+    int nesting_level{};
+    std::vector<std::string> nested_sets_set{};
+    std::string nested_set{};
+    if(initial_equation.find('(')==std::string::npos) return calculation_caller(initial_equation);
+    for(unsigned long i{}; i<initial_equation.length(); i++)
+    {
+        if(initial_equation.at(i)=='(')
+        {
+            nesting_level++;
+        }
+        else if(initial_equation.at(i)==')')
+        {
+            nesting_level--;
+            if(nesting_level<1)
+            {
+                nested_set.push_back(initial_equation.at(i));
+                nested_sets_set.push_back(nested_set);
+                nested_set.clear();
+                continue;
+            }
+        }
+
+
+        if(nesting_level==0 && initial_equation.at(i)=='(')
+        {
+            nested_sets++;
+            relevant_indexes.push_back(i);
+
+        }
+        else if (nesting_level==0 && initial_equation.at(i)==')')
+        {
+            relevant_indexes.push_back(i);
+        }
+        if(nesting_level>=0)
+        {
+            nested_set.push_back(initial_equation.at(i));
+        }
+    }
+    long double result{};
+    for(unsigned long j{}; j<nested_sets_set.size(); j++)
+    {
+        //std::cout << nested_sets_set.at(j) << "\n";
+        result = calculation_caller(nested_sets_set.at(j));
+        std::ostringstream result_as_string;
+        result_as_string << result;
+        if(j+1<nested_sets_set.size())
+        {
+            nested_sets_set.at(j+1)=nested_sets_set.at(j)+nested_sets_set.at(j+1);
+        }
+
+    }
+    return result;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void make_implicit_multiplication_explicit(std::string &equation)
+{
+    for(unsigned long i{}; i<equation.length(); i++)
+    {
+        if(equation.at(i)=='(' && ((equation.at(i-1)>='0' && equation.at(i-1)<='9') || equation.at(i-1)==')'))
+        {
+            equation.insert(equation.begin()+i, '*');
+        }
+    }
+    //std::cout << equation << "\n";
+    return;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//Line 469
