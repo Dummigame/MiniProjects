@@ -448,7 +448,7 @@ long double calculation_caller_caller(std::string &initial_equation)
 
 void make_implicit_multiplication_explicit(std::string &equation)
 {
-    for(unsigned long i{}; i<equation.length(); i++)
+    for(unsigned long i{1}; i<equation.length(); i++)
     {
         if(equation.at(i)=='(' && ((equation.at(i-1)>='0' && equation.at(i-1)<='9') || equation.at(i-1)==')'))
         {
