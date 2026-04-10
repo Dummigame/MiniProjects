@@ -46,12 +46,6 @@ int main()
     std::string operators {get_operators(equation)};
     std::vector<long double> numbers{get_numbers(equation)};
 
-    if(numbers.size()<= operators.size())
-    {
-        broken_equation=true;
-        goto broken_equation;
-    }
-
     if(numbers.size()<2)
     {
         std::cout << equation << std::endl;
@@ -255,7 +249,7 @@ bool sanitize_equation(std::string &equation)
             }
             if(equation[i]=='-' && equation[i+1]=='+') is_unsavable=true;
 
-            if(((equation.at(i)=='*' || equation.at(i)=='/' || equation.at(i)=='+' || equation.at(i)=='^' || equation.at(i)=='-') && (equation.at(i+1)=='*' || equation.at(i+1)=='/' || equation.at(i+1)=='+' || equation.at(i+1)=='^')))
+            if(((equation.at(i)=='*' || equation.at(i)=='/' || equation.at(i)=='+' || equation.at(i)=='^' || equation.at(i)=='-') && (equation.at(i+1)=='*' || equation.at(i+1)=='/' || equation.at(i+1)=='+' || equation.at(i+1)=='^' || equation.at(i+1)==')')))
             {
                 is_unsavable=true;
             }
