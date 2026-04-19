@@ -54,7 +54,6 @@ std::vector<int> sort(const std::vector<int> &unsorted)
         else
         {
             sorted.push_back(right.at(j-offsetRight));
-            //if(right.size()>left.size()&&j==left.size()-1&&right.at(j+1)<left.at(j)) sorted.push_back(right.at(j+1));
             offsetLeft++;
         }
     }
