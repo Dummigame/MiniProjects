@@ -6,68 +6,60 @@
 #include <fstream>
 #include <filesystem>
 
+using std::uniform_int_distribution;
 
-template<typename T> T toNumber(std::string inputString)
-{
-    if(std::is_same<T, unsigned int>::value)
-    {
-        for(uint i{}; i<inputString.length(); i++)
-        {
-            if(inputString.at(i)<'0' || inputString.at(i)>'9')
-            {
-                inputString.erase(i);
-                i--;
-            }
-        }
-        
-        for(uint i{'0'}; i<='9'; i++)
-        {
-            if(inputString.find(i) != std::string::npos) break;
-            else if(i=='9')
-            {
-                inputString.clear();
-                inputString.push_back('1');
-                std::cout<<"\nInvalid input, defaulted to 1\n";
-            }
-        }
-        
+template <typename T> T toNumber(std::string inputString) {
+  if (std::is_same<T, unsigned int>::value) {
+    for (uint i{}; i < inputString.length(); i++) {
+      if (inputString.at(i) < '0' || inputString.at(i) > '9') {
+        inputString.erase(i);
+        i--;
+      }
+    }
 
-        const T number=std::stoul(inputString);
-        return number;
+    for (uint i{'0'}; i <= '9'; i++) {
+      if (inputString.find(i) != std::string::npos)
+        break;
+      else if (i == '9') {
+        inputString.clear();
+        inputString.push_back('1');
+        std::cout << "\nInvalid input, defaulted to 1\n";
+      }
     }
-    else
-    {
-        bool foundDecimal{};
-        for(uint i{}; i<inputString.length(); i++)
-        {
-            if((inputString.at(i)<'0' || inputString.at(i)>'9') && (inputString.at(i) !='.' || (inputString.at(i) == '.' && foundDecimal==true)) && inputString.at(i)!='-')
-            {
-                if(inputString.at(i=='.' && foundDecimal==false))
-                {
-                    foundDecimal=true;
-                }
-                inputString.erase(i);
-                
-                i--;
-            }
+
+    const T number = std::stoul(inputString);
+    return number;
+  } else {
+    bool foundDecimal{};
+    for (uint i{}; i < inputString.length(); i++) {
+      if ((inputString.at(i) < '0' || inputString.at(i) > '9') &&
+          (inputString.at(i) != '.' ||
+           (inputString.at(i) == '.' && foundDecimal == true)) &&
+          inputString.at(i) != '-') {
+        if (inputString.at(i == '.' && foundDecimal == false)) {
+          foundDecimal = true;
         }
-        
-        for(unsigned char i{'0'}; i<='9'; i++)
-        {
-            if(inputString.find(i) != std::string::npos) break;
-            else if(i=='9')
-            {
-                inputString.clear();
-                inputString.push_back('0');
-                inputString.push_back('.');
-                inputString.push_back('5');
-                std::cout<<"\nInvalid input, defaulted to 0.5\n";
-            }
-        }
-        
-        const T number=std::stold(inputString);
-        return number;
+        inputString.erase(i);
+
+        i--;
+      }
     }
+
+    for (unsigned char i{'0'}; i <= '9'; i++) {
+      if (inputString.find(i) != std::string::npos)
+        break;
+      else if (i == '9') {
+        inputString.clear();
+        inputString.push_back('0');
+        inputString.push_back('.');
+        inputString.push_back('5');
+        std::cout << "\nInvalid input, defaulted to 0.5\n";
+      }
+    }
+
+    const T number = std::stold(inputString);
+    return number;
+  }
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct args
@@ -76,7 +68,7 @@ struct args
     std::string separation;
     long double minimum{};
     long double maximum{1};
-    uint amount{1};
+    unsigned long long amount{1};
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool isFloatAsString(const std::string&);
@@ -85,6 +77,7 @@ void generateToStdout(args args);
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main()
 {
+
     bool useFloats{};
     bool toFile{};
 
@@ -151,7 +144,7 @@ int main()
         std::cout<<"\nSpecified non-integer as number count. Floored.";
         for(unsigned long i{inputString.find('.')}; i<inputString.length(); i++) inputString.erase(i);
     }
-    uint amount=toNumber<unsigned int>(inputString);
+    unsigned int amount=toNumber<unsigned int>(inputString);
     if(amount>1000)
     {
         toFile=true;
@@ -179,6 +172,7 @@ bool isFloatAsString(const std::string& numberAsString)
 void generateToFile(args args)
 {
     std::random_device randev;
+    std::mt19937 random(randev());
     if(!args.useFloats)
     {
         std::ofstream file{"output.txt"};
@@ -187,11 +181,11 @@ void generateToFile(args args)
             std::cerr << "File did not open.";
             return;
         }
-        std::uniform_int_distribution<int> intDist(args.minimum,args.maximum);
+        std::uniform_int_distribution<std::mt19937::result_type> intDist(args.minimum,args.maximum);
         for(uint i{}; i<args.amount && i<UINT32_MAX; i++)
         {
             if(i>0) file<<args.separation;
-            file<<intDist(randev);
+            file<<intDist(random);
         }
         std::cout<<"File saved to " << std::filesystem::current_path() << "\n";
         return;
@@ -204,12 +198,12 @@ void generateToFile(args args)
             std::cerr << "File did not open.";
             return;
         }
-        std::uniform_real_distribution<long double> longDoubleDist(args.minimum,args.maximum);
+        std::uniform_real_distribution<> longDoubleDist(args.minimum,args.maximum);
         std::cout<<'\n';
         for(uint i{}; i<args.amount && i<UINT32_MAX; i++)
         {
             if(i>0) file<<args.separation;
-            file<<longDoubleDist(randev);
+            file<<longDoubleDist(random);
         }
         std::cout<<"File saved to " << std::filesystem::current_path() << "\n";
         return;
@@ -220,26 +214,27 @@ void generateToFile(args args)
 void generateToStdout(args args)
 {
     std::random_device randev;
+    std::mt19937 random(randev());
     if(!args.useFloats)
     {
         std::cout<<'\n';
-        std::uniform_int_distribution<int> intDist(args.minimum,args.maximum);
+        uniform_int_distribution<std::mt19937::result_type> intDist(args.minimum, args.maximum);
         for(uint i{}; i<args.amount && i<UINT32_MAX; i++)
         {
             if(i>0) std::cout<<args.separation;
-            std::cout<<intDist(randev);
+            std::cout<<intDist(random);
         }
         std::cout<<'\n';
         return;
     }
     else
     {
-        std::uniform_real_distribution<long double> longDoubleDist(args.minimum,args.maximum);
+        std::uniform_real_distribution<> longDoubleDist(args.minimum,args.maximum);
         std::cout<<'\n';
         for(uint i{}; i<args.amount && i<UINT32_MAX; i++)
         {
             if(i>0) std::cout<<args.separation;
-            std::cout<<longDoubleDist(randev);
+            std::cout<<longDoubleDist(random);
         }
         std::cout<<'\n';
         return;
