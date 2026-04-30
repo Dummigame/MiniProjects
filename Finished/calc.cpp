@@ -93,6 +93,7 @@ std::vector<long double> getNumbers(const std::string &input_string)
     std::vector<long double> numbers;
 
     uint offset=0;
+    bool scientific{};
     uint offset_negative_number{};
     std::string current_number;
     bool number_present=false;
@@ -111,11 +112,13 @@ std::vector<long double> getNumbers(const std::string &input_string)
                 {
                     current_number.push_back('e');
                     current_number.push_back(input_string.at(i+1));
-                     if(i+2<input_string.length()) i+=2;
+                    scientific=true;
+                    if(i+2<input_string.length()) i+=2;
+                    else break;
                 }
             if((input_string[i] >='0' && input_string[i]<='9') || input_string[i] == '.')
             {
-                if(i>0) if(input_string.at(i-1)=='-') current_number.push_back('-');
+                if(i>0 && !scientific) if(input_string.at(i-1)=='-') current_number.push_back('-');
                 current_number.push_back(input_string.at(i));
                 number_present=true;
             }
@@ -129,6 +132,7 @@ std::vector<long double> getNumbers(const std::string &input_string)
         if(number_present==true) numbers.push_back (std::stold(current_number));
         number_present=false;
         current_number.clear();
+        scientific=false;
     }
     return numbers;
 }
