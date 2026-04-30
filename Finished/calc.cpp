@@ -14,7 +14,7 @@ long double calculation_caller(std::string &initial_equation);
 long double calculation_caller_caller(std::string &initial_equation); //Take this program very seriously.
 bool isDefinitelyOperator(char input); //my function names are impeccable
 
-enum 
+enum
 {
     EXPONENTIATION,
     MULTIPLICATION,
@@ -29,7 +29,7 @@ int main()
     long double result{};
     std::string equation;
     std::cout << "Type your equation (+-*/^ and parentheses =>() allowed):\n=> ";
-    
+
     std::getline(std::cin, equation);
     if(equation.length()<3)
     {
@@ -37,6 +37,7 @@ int main()
     }
     bool broken_equation{};
     broken_equation=sanitize_equation(equation);
+
     broken_equation:
     if(broken_equation)
     {
@@ -57,9 +58,7 @@ int main()
         std::cout<<'\n';
         return 0;
     }
-
     result=calculation_caller_caller(equation);
-
     std::ostringstream result_as_string;
     result_as_string << result;
     equation=result_as_string.str();
@@ -81,8 +80,8 @@ std::string getOperators(const std::string &input)
     std::string operators;
     for(long unsigned int i=0; i<input.length(); i++)
     {
-        if(input.at(i) == '+' || input.at(i) == '*' || input.at(i) == '/' || input.at(i) == '^') operators.push_back(input.at(i));
-        if(input.at(i)=='-' && i!=0 && input.at(i-1)!= '^' && input.at(i-1)!= '*' && input.at(i-1)!= '/' && input.at(i-1)!= '+' ) operators.push_back('+');
+        if(isDefinitelyOperator(input.at(i)) && input.at(i-1)!='e') operators.push_back(input.at(i));
+        if(input.at(i)=='-' && i!=0 && input.at(i-1)!= '^' && input.at(i-1)!= '*' && input.at(i-1)!= '/' && input.at(i-1)!= '+' &&input.at(i-1)!='e') operators.push_back('+');
     }
     return operators;
 }
@@ -107,6 +106,13 @@ std::vector<long double> getNumbers(const std::string &input_string)
                 goto skip;
             }
 
+            if(i+1<input_string.length())
+                if(input_string.at(i)=='e' && (input_string.at(i+1) == '+' || input_string.at(i+1) == '-'))
+                {
+                    current_number.push_back('e');
+                    current_number.push_back(input_string.at(i+1));
+                     if(i+2<input_string.length()) i+=2;
+                }
             if((input_string[i] >='0' && input_string[i]<='9') || input_string[i] == '.')
             {
                 if(i>0) if(input_string.at(i-1)=='-') current_number.push_back('-');
@@ -144,7 +150,7 @@ long double calculation(std::string &operators, std::vector<long double> &number
                 for(int i__=operators.length()-1; i__>=0; i__--)
                 {
                     if(operators.at(i__)=='^')
-                    {                    
+                    {
                         result_of_previous=evaluate_two_numbers(numbers.at(i__), numbers.at(i__+1), operators.at(i__));
 
                         numbers[i__+1]=result_of_previous;
@@ -153,7 +159,7 @@ long double calculation(std::string &operators, std::vector<long double> &number
                             numbers.at(i__+1)=(result_of_previous*(-1));
                             result_of_previous=result_of_previous*(-1);
                         }
-                        
+
                         numbers.erase(numbers.begin()+i__);
                         operators.erase(operators.begin()+i__);
                         continue;
@@ -181,18 +187,17 @@ long double calculation(std::string &operators, std::vector<long double> &number
         }
     }
     return result_of_previous;
-} 
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool sanitize_equation(std::string &equation) 
+bool sanitize_equation(std::string &equation)
 {
-    static bool addedParentheses{};
-    if(!addedParentheses)
+    static bool notFirstRun{};
+    if(notFirstRun==0)
     {
         equation.insert(equation.begin(), '(');
         equation.push_back(')');
-        addedParentheses=true;
     }
     //I do not have access to a debugger rn so this is my very bad band-aid. Don't write code like this, kids.
 
@@ -204,39 +209,43 @@ bool sanitize_equation(std::string &equation)
 
 
     //Removes garbage and operators before start of equation
-    for(int i__{}; i__<=equation.length(); i__++)
+    if(notFirstRun==0)
     {
-        if(!(equation.at(i__)>='0' && equation.at(i__)<='9') && equation.at(i__)!='-' && equation.at(i__)!='(')
+        for(int i__{}; i__<=equation.length(); i__++)
         {
-            equation.erase(equation.begin());
-            if(!equation.length())
+            if(!(equation.at(i__)>='0' && equation.at(i__)<='9') && equation.at(i__)!='-' && equation.at(i__)!='(')
             {
-                is_unsavable=true;
-                break;
+                equation.erase(equation.begin());
+                if(!equation.length())
+                {
+                    is_unsavable=true;
+                    break;
+                }
+                i__--;
+                sanitization_required=true;
             }
-            i__--;
-            sanitization_required=true;
+            else break;
         }
-        else break;
-    }
 
-    //Removes garbage in equation
-    for(long unsigned int i_{}; i_<equation.length(); i_++)
-    {
-        if(!(equation.at(i_)>='0' && equation.at(i_)<='9') && equation.at(i_)!='-' && equation.at(i_)!='+' && equation.at(i_)!= '*' && equation.at(i_)!= '/' && equation.at(i_)!='.' && equation.at(i_)!='^' && equation.at(i_)!='('&& equation.at(i_)!=')')
+        //Removes garbage in equation
+        for(long unsigned int i_{}; i_<equation.length(); i_++)
         {
-            equation.erase(equation.begin()+i_);
-            i_--; //Yes this causes an underflow but it doesn't matter since it is the last time i_ is used before being incremented again
-            sanitization_required=true;
+            if(!(equation.at(i_)>='0' && equation.at(i_)<='9') && equation.at(i_)!='-' && equation.at(i_)!='+' && equation.at(i_)!= '*' && equation.at(i_)!= '/' && equation.at(i_)!='.' && equation.at(i_)!='^' && equation.at(i_)!='('&& equation.at(i_)!=')')
+            {
+                equation.erase(equation.begin()+i_);
+                i_--; //Yes this causes an underflow but it doesn't matter since it is the last time i_ is used before being incremented again
+                sanitization_required=true;
+            }
+            long unsigned int final_element{equation.length()-1};
+            if(equation.at(final_element) == '+' || equation.at(final_element) == '*' || equation.at(final_element) == '/' || equation.at(final_element) == '^') equation.erase(--equation.end());
         }
-        long unsigned int final_element{equation.length()-1};
-        if(equation.at(final_element) == '+' || equation.at(final_element) == '*' || equation.at(final_element) == '/' || equation.at(final_element) == '^') equation.erase(--equation.end());
     }
 
     for(long unsigned int i{}; i<equation.length(); i++)
     {
         if(i+1<equation.length())
         {
+            if(equation.at(i)=='e' && equation.at(i+1)=='+') continue;
             if(equation.at(i)=='-' && equation.at(i+1)=='-')
             {
                 equation.at(i)='+';
@@ -248,7 +257,7 @@ bool sanitize_equation(std::string &equation)
                     sanitization_required=true;
                     continue;
                 }
-                
+
                 if(i>1) if((isDefinitelyOperator(equation.at(i-1))))
                 {
                     equation.erase(equation.begin()+i);
@@ -269,12 +278,12 @@ bool sanitize_equation(std::string &equation)
                 equation.erase(equation.begin()+i+1);
                 i--;
                 sanitization_required=true;
-                continue;               
+                continue;
             }
 
             if((isDefinitelyOperator(equation.at(i) || equation.at(i)=='-')
                 &&
-                (isDefinitelyOperator(equation.at(i)) || equation.at(i+1)==')')))
+                (isDefinitelyOperator(equation.at(i+1)) || equation.at(i+1)==')')))
             {
                 is_unsavable=true;
             }
@@ -308,7 +317,9 @@ bool sanitize_equation(std::string &equation)
     if(symbols >= digits) is_unsavable=true;
     if(parentheses_imbalance) is_unsavable=true;
     if(equation.length()<3) return true; // <3
-    if(sanitization_required && !is_unsavable) std::cout << "\n=================================================================\n|| Your equation had to be sanitized. Output may be incorrect! ||\n=================================================================\nNew equation: " << equation << "\n";
+    if(sanitization_required && !is_unsavable) std::cout << "\n=================================================================\n|| Your equation had to be sanitized. Output may be incorrect! ||\n=================================================================\nNew equation: "
+        << equation.substr(1, equation.length()-2) << "\n";
+    notFirstRun=true;
     return is_unsavable;
 }
 //The fact that it sanitizes anything is funny because you can use this to calculate some keyboard smashes
@@ -348,7 +359,7 @@ long double calculation_caller(std::string &initial_equation)
     std::string intermediate_equation{};
     int nested_characters_count{2}; //Initialized 2 because of parentheses
 
-    sanitize_equation(initial_equation);
+    //sanitize_equation(initial_equation);
 
     if((initial_equation.find('(') != std::string::npos) && (nesting_levels_found>nesting_levels_calculated || recursion_count==0))
     {
@@ -360,7 +371,7 @@ long double calculation_caller(std::string &initial_equation)
             {
                 for(unsigned long j=i+1; j<initial_equation.length(); j++)
                 {
-                    //What this does: if you have i.e. 3+3(2+1(4+2)) it will call this same function with 2+1(4+2) and then 4+2   
+                    //What this does: if you have i.e. 3+3(2+1(4+2)) it will call this same function with 2+1(4+2) and then 4+2
                     if(initial_equation.at(j)=='(')nesting_levels_inside++;
                     else if(initial_equation.at(j)==')') nesting_levels_inside--;
                     if(nesting_levels_inside>=0) nested_characters_count++;
@@ -389,7 +400,7 @@ long double calculation_caller(std::string &initial_equation)
                     }
                     else equation.push_back(initial_equation.at(j));
                 }
-            
+
             }
         }
     }
@@ -410,8 +421,7 @@ long double calculation_caller(std::string &initial_equation)
         return numbers.at(0);
     }
     else if(numbers.size()==0) broken_equation=true;
-
-
+    if(operators.size()==0) return numbers.at(0);
     result=calculation(operators, numbers);
     nesting_levels_calculated++;
     return result;
@@ -426,7 +436,12 @@ long double calculation_caller_caller(std::string &initial_equation)
     int nesting_level{};
     std::vector<std::string> nested_sets_set{};
     std::string nested_set{};
-    if(initial_equation.find('(')==std::string::npos) return calculation_caller(initial_equation);
+    // if(initial_equation.length()>1 && initial_equation.find('(', 1)==std::string::npos)
+    // {
+    //     std::string operators {getOperators(initial_equation)};
+    //     std::vector<long double> numbers{getNumbers(initial_equation)};        
+    //     return calculation(operators, numbers);
+    // }
     for(unsigned long i{}; i<initial_equation.length(); i++)
     {
         if(initial_equation.at(i)=='(')
@@ -464,7 +479,6 @@ long double calculation_caller_caller(std::string &initial_equation)
     long double result{};
     for(unsigned long j{}; j<nested_sets_set.size(); j++)
     {
-        //std::cout << nested_sets_set.at(j) << "\n";
         result = calculation_caller(nested_sets_set.at(j));
         std::ostringstream result_as_string;
         result_as_string << result;
@@ -497,4 +511,3 @@ bool isDefinitelyOperator(char input)
 {
     return input=='+' || input=='/' || input=='*' || input=='^';
 }
-//We've cracked 500 lines. I am not proud of it... wait, this comment is the reason why!
