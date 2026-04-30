@@ -1,16 +1,18 @@
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 #include <math.h>
 #include <sstream>
 bool sanitize_equation(std::string &equation);
-std::string get_operators(const std::string &input);
-std::vector<long double> get_numbers(const std::string &input_string);
+std::string getOperators(const std::string &input);
+std::vector<long double> getNumbers(const std::string &input_string);
 long double evaluate_two_numbers(const long double &input_a, const long double &input_b, const char selected_operator);
 void make_implicit_multiplication_explicit(std::string &equation);
 long double calculation(std::string &operators, std::vector<long double> &numbers);
 long double calculation_caller(std::string &initial_equation);
 long double calculation_caller_caller(std::string &initial_equation); //Take this program very seriously.
+bool isDefinitelyOperator(char input); //my function names are impeccable
 
 enum 
 {
@@ -31,24 +33,28 @@ int main()
     std::getline(std::cin, equation);
     if(equation.length()<3)
     {
-        std::cout << "Equation too short! Exiting.\n";
-        return 0;
+        throw std::runtime_error("Your equation was too short.");
     }
     bool broken_equation{};
     broken_equation=sanitize_equation(equation);
     broken_equation:
     if(broken_equation)
     {
-        std::cout << "\n==============================================\nYour equation could not be sanitized! Exiting.\n==============================================\n";
-        return 0;
+        throw std::runtime_error("Your equation could not be sanitized.");
     }
     make_implicit_multiplication_explicit(equation);
-    std::string operators {get_operators(equation)};
-    std::vector<long double> numbers{get_numbers(equation)};
+    std::string operators {getOperators(equation)};
+    std::vector<long double> numbers{getNumbers(equation)};
 
-    if(numbers.size()<2)
+    if(numbers.size()<2 && numbers.size()>0)
     {
-        std::cout << equation << std::endl;
+        std::ostringstream numberAsString;
+        numberAsString << numbers.at(0);
+        equation=numberAsString.str();
+        for(unsigned long int i{}; i<equation.length()+2; i++) std::cout <<"=";
+        std::cout << "\n " << numbers.at(0) << '\n';
+        for(unsigned long int i{}; i<equation.length()+2; i++) std::cout <<"=";
+        std::cout<<'\n';
         return 0;
     }
 
@@ -60,7 +66,7 @@ int main()
 
 
     for(unsigned long int i{}; i<equation.length()+2; i++) std::cout <<"=";
-    std::cout << "\n " << result << std::endl;
+    std::cout << "\n " << result << '\n';
     for(unsigned long int i{}; i<equation.length()+2; i++) std::cout <<"=";
     std::cout << "\n";
 
@@ -70,7 +76,7 @@ int main()
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::string get_operators(const std::string &input)
+std::string getOperators(const std::string &input)
 {
     std::string operators;
     for(long unsigned int i=0; i<input.length(); i++)
@@ -83,7 +89,7 @@ std::string get_operators(const std::string &input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<long double> get_numbers(const std::string &input_string)
+std::vector<long double> getNumbers(const std::string &input_string)
 {
     std::vector<long double> numbers;
 
@@ -181,6 +187,15 @@ long double calculation(std::string &operators, std::vector<long double> &number
 
 bool sanitize_equation(std::string &equation) 
 {
+    static bool addedParentheses{};
+    if(!addedParentheses)
+    {
+        equation.insert(equation.begin(), '(');
+        equation.push_back(')');
+        addedParentheses=true;
+    }
+    //I do not have access to a debugger rn so this is my very bad band-aid. Don't write code like this, kids.
+
     bool is_unsavable{};
     bool sanitization_required{};
 
@@ -234,7 +249,7 @@ bool sanitize_equation(std::string &equation)
                     continue;
                 }
                 
-                if(i>1) if((equation.at(i-1)=='*' || equation.at(i-1)=='/' || equation.at(i-1)=='+' || equation.at(i-1)=='^'))
+                if(i>1) if((isDefinitelyOperator(equation.at(i-1))))
                 {
                     equation.erase(equation.begin()+i);
                     i--;
@@ -245,17 +260,34 @@ bool sanitize_equation(std::string &equation)
             if((equation[i]=='+' && equation[i+1]=='+') || (equation[i]=='+' && equation[i+1]=='-'))
             {
                 equation.erase(equation.begin()+i);
+                i--;
                 sanitization_required=true;
+                continue;
             }
-            if(equation[i]=='-' && equation[i+1]=='+') is_unsavable=true;
+            if(equation[i]=='-' && equation[i+1]=='+')
+            {
+                equation.erase(equation.begin()+i+1);
+                i--;
+                sanitization_required=true;
+                continue;               
+            }
 
-            if(((equation.at(i)=='*' || equation.at(i)=='/' || equation.at(i)=='+' || equation.at(i)=='^' || equation.at(i)=='-') && (equation.at(i+1)=='*' || equation.at(i+1)=='/' || equation.at(i+1)=='+' || equation.at(i+1)=='^' || equation.at(i+1)==')')))
+            if((isDefinitelyOperator(equation.at(i) || equation.at(i)=='-')
+                &&
+                (isDefinitelyOperator(equation.at(i)) || equation.at(i+1)==')')))
             {
                 is_unsavable=true;
             }
             if((equation.at(i)=='-' && (equation.at(i+1)=='*' || equation.at(i+1)=='/')))
             {
                 is_unsavable=true;
+            }
+            if(equation.at(i)=='(' && isDefinitelyOperator(equation.at(i+1)))
+            {
+                equation.erase(equation.begin()+i+1);
+                sanitization_required=true;
+                i--;
+                continue;
             }
         }
     }
@@ -289,14 +321,15 @@ long double evaluate_two_numbers(const long double &input_a, const long double &
 
     switch (selected_operator)
     {
-        case '+': {result=input_a+input_b; break;}
-        case '-': {result=input_a-input_b; break;}
-        case '*': {result=input_a*input_b; break;}
-        case '/': {result=(long double)input_a/(long double)input_b; break;}
-        case '^': {result=std::pow(input_a,input_b); break;}
+        case '+': {return input_a+input_b;}
+        case '-': {return input_a-input_b;}
+        case '*': {return input_a*input_b;}
+        case '/': {return (long double)input_a/(long double)input_b;}
+        case '^': {return std::pow(input_a,input_b);}
     }
 
-    return result;
+    throw std::runtime_error("An unhandled operator was found.");
+    return NAN;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -314,6 +347,8 @@ long double calculation_caller(std::string &initial_equation)
     std::string intermediate_result_as_string{};
     std::string intermediate_equation{};
     int nested_characters_count{2}; //Initialized 2 because of parentheses
+
+    sanitize_equation(initial_equation);
 
     if((initial_equation.find('(') != std::string::npos) && (nesting_levels_found>nesting_levels_calculated || recursion_count==0))
     {
@@ -359,29 +394,27 @@ long double calculation_caller(std::string &initial_equation)
         }
     }
     else equation=initial_equation;
-
-    std::string operators {get_operators(equation)};
-    std::vector<long double> numbers{get_numbers(equation)};
-    if(operators.size()==0)return numbers.at(0);
+    sanitize_equation(equation);
+    make_implicit_multiplication_explicit(equation);
+    std::string operators {getOperators(equation)};
+    std::vector<long double> numbers{getNumbers(equation)};
+    if(operators.size()==0 && numbers.size()>0)return numbers.at(0);
 
     if(numbers.size()<= operators.size())
     {
         broken_equation=true;
     }
 
-    if(numbers.size()<2)
+    if(numbers.size()<2 && numbers.size()>0)
     {
-        std::cout << equation << std::endl;
-        return 0;
+        return numbers.at(0);
     }
+    else if(numbers.size()==0) broken_equation=true;
 
 
     result=calculation(operators, numbers);
     nesting_levels_calculated++;
     return result;
-
-    error:
-    // Bad thing
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -450,15 +483,18 @@ void make_implicit_multiplication_explicit(std::string &equation)
 {
     for(unsigned long i{1}; i<equation.length(); i++)
     {
-        if(equation.at(i)=='(' && ((equation.at(i-1)>='0' && equation.at(i-1)<='9') || equation.at(i-1)==')'))
+        if((equation.at(i)=='(' && (equation.at(i-1)>='0' && equation.at(i-1)<='9') || (equation.at(i-1)==')' && (equation.at(i)>='0' && equation.at(i)<='9'))))
         {
             equation.insert(equation.begin()+i, '*');
         }
     }
-    //std::cout << equation << "\n";
     return;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//Line 469
+bool isDefinitelyOperator(char input)
+{
+    return input=='+' || input=='/' || input=='*' || input=='^';
+}
+//We've cracked 500 lines. I am not proud of it... wait, this comment is the reason why!
