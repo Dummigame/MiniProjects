@@ -151,21 +151,21 @@ long double calculation(std::string &operators, std::vector<long double> &number
         {
             if(i_==0 && i==EXPONENTIATION)
             {
-                for(int i__=operators.length()-1; i__>=0; i__--)
+                for(int j=operators.length()-1; j>=0; j--)
                 {
-                    if(operators.at(i__)=='^')
+                    if(operators.at(j)=='^')
                     {
-                        result_of_previous=evaluate_two_numbers(numbers.at(i__), numbers.at(i__+1), operators.at(i__));
+                        result_of_previous=evaluate_two_numbers(numbers.at(j), numbers.at(j+1), operators.at(j));
 
-                        numbers[i__+1]=result_of_previous;
-                        if(numbers.at(i__)<0 && numbers.at(i__+1)>0)
+                        numbers[j+1]=result_of_previous;
+                        if(numbers.at(j)<0 && numbers.at(j+1)>0)
                         {
-                            numbers.at(i__+1)=(result_of_previous*(-1));
+                            numbers.at(j+1)=(result_of_previous*(-1));
                             result_of_previous=result_of_previous*(-1);
                         }
 
-                        numbers.erase(numbers.begin()+i__);
-                        operators.erase(operators.begin()+i__);
+                        numbers.erase(numbers.begin()+j);
+                        operators.erase(operators.begin()+j);
                         continue;
                     }
                 }
