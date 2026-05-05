@@ -141,9 +141,12 @@ class token
     {
         bool isTrue{};
         if(input.length()<3) return false;
-        if((input.at(0)=='(' && input.at(input.length()-1)==')')) isTrue=true;
-        input.erase(0, 1);
-        input.pop_back();
+        if((input.at(0)=='(' && input.at(input.length()-1)==')'))
+        {
+            isTrue=true;
+            input.erase(0, 1);
+            input.pop_back();
+        }
         return isTrue;
     }
     ///////////////////////////////////////////////
@@ -287,7 +290,7 @@ int main(int argc, char** argv)
 
 void displayHelp()
 {
-    std::cout<<"\nThis calculator allows you to write out an equation using numbers +, -, *, /, ^, x, !, !! and the function root(denominator, enumerator)\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2.\n\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them.\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX\n\n";
+    std::cout<<"\nThis calculator allows you to write out an equation using numbers +, -, *, /, ^, x, !, !! and ()\n\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them.\nExample: \"3(5\\!\\!*10\\!\\!)\" -> \"3(5!!*10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX\n\n";
     return;
 }
 
@@ -295,7 +298,7 @@ void displayHelp()
 
 bool isValidInput(const char c)
 {
-    return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='r'||c=='o'||c=='t'||c==','||c=='e'||c=='^'||c=='!';
+    return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='e'||c=='^'||c=='!';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
