@@ -228,6 +228,7 @@ int main(int argc, char** argv)
     if(argc>1)
     {
         equation+=argv[1];
+        for(int i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--);
         std::cout<<"\nPassed " <<equation<< " as input from command line\n";
         passedInAsArg=true;
     }
@@ -286,7 +287,7 @@ int main(int argc, char** argv)
 
 void displayHelp()
 {
-    std::cout<<"\nThis calculator allows you to write out an equation using numbers +, -, *, /, ^, x and the function root(denominator, enumerator)\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root.\nFor example, root(4) is 2.\n\n";
+    std::cout<<"\nThis calculator allows you to write out an equation using numbers +, -, *, /, ^, x, !, !! and the function root(denominator, enumerator)\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2.\n\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them.\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX\n\n";
     return;
 }
 
@@ -467,7 +468,7 @@ double calculation(std::vector<token> tokens, double xValue)
                     tokens.erase(tokens.begin()+i);
                     i--;
                 }
-                if((tokens.at(i).type()==token_t::UNARYOP || tokens.at(i).type()==token_t::MULTICHARUNARY) && tokens.at(i-1).type()==token_t::NUMBER)
+                if((tokens.at(i).type()==token_t::UNARYOP || tokens.at(i).type()==token_t::MULTICHARUNARY) && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
                 {
                     double evaluatedUnary=evaluateUnary(tokens.at(i-1), tokens.at(i), xValue);
                     std::ostringstream evaluatedResultAsOSStream;
@@ -579,6 +580,7 @@ double evaluateUnary(token numberString, token operation, double xValue)
     double number=numberString.number(xValue);
     double result{1};
     if(operation.value()=="-") return number*-1;
+    if(number<0) throw std::runtime_error("Cannot evaluate factorial of negative number!");
     if(operation.value()=="!!")
         for(int i{static_cast<int>(std::round(number))%2+2}; i<static_cast<int>(std::round(number))+1; i+=2)
         {
