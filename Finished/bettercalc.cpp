@@ -232,9 +232,22 @@ int main(int argc, char** argv)
     if(argc>1)
     {
         equation+=argv[1];
+        if(equation.at(0)=='?')
+        {
+            displayHelp();
+            return 0;
+        }
+        if(equation.at(0)=='q'|| equation.at(0)=='Q')
+        {
+            std::cout<<"\nWhy have you done this..?\n";
+            return 0;
+        }
         for(int i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--);
-        std::cout<<"\nPassed " <<equation<< " as input from command line\n";
-        passedInAsArg=true;
+        if(equation!="")
+        {
+            std::cout<<"\nPassed " <<equation<< " as input from command line\n";
+            passedInAsArg=true;
+        }
     }
     std::vector<double> varRange{};
     if(equation.find('x')!=std::string::npos)
@@ -257,7 +270,7 @@ int main(int argc, char** argv)
         std::cout << "Type your equation (? for help, q to quit):\n=> ";
         std::getline(std::cin, equation);
         if(equation.length()==0) throw std::runtime_error("Empty input");
-        if(equation.at(0)=='q') break;
+        if(equation.at(0)=='q' || equation.at(0)=='Q') break;
         if(equation.at(0)=='?')
         {
             displayHelp();
@@ -272,7 +285,15 @@ int main(int argc, char** argv)
         {
             varRange = getVariableArgs(tokens);
         }
-        if(varRange.empty()) std::cout << "\nResult: " << calculation(tokens) << '\n';
+        if(varRange.empty()) 
+        {
+            result = calculation(tokens);
+            std::ostringstream resultAsOSStream;
+            resultAsOSStream<<result;
+            for(unsigned long int i{}; i<resultAsOSStream.str().length()+2; i++) std::cout <<"=";
+            std::cout << "\n " << result << '\n';
+            for(unsigned long int i{}; i<resultAsOSStream.str().length()+2; i++) std::cout <<"=";
+        }
         else for(double xValue=varRange.at(0); xValue<=varRange.at(1); xValue+=varRange.at(2))
         {
             result=calculation(tokens, xValue);
