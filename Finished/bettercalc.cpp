@@ -12,6 +12,7 @@ enum pass
 {
     SUBEXPRESSIONS,
     UNARYOPS,
+    UNARYMINUS,
     EXPONENTIATION,
     MULTIPLICATION,
     ADDITION
@@ -462,18 +463,21 @@ double calculation(std::vector<token> tokens, double xValue)
             else if(pass==UNARYOPS)
             {
                 if(i==0) continue;
-                if(tokens.at(i-1).value()=="-" && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
+                if((tokens.at(i).type()==token_t::UNARYOP || tokens.at(i).type()==token_t::MULTICHARUNARY) && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
                 {
-                    double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
+                    double evaluatedUnary=evaluateUnary(tokens.at(i-1), tokens.at(i), xValue);
                     std::ostringstream evaluatedResultAsOSStream;
                     evaluatedResultAsOSStream << evaluatedUnary;
                     tokens.at(i-1)=token(evaluatedResultAsOSStream.str());
                     tokens.erase(tokens.begin()+i);
                     i--;
                 }
-                if((tokens.at(i).type()==token_t::UNARYOP || tokens.at(i).type()==token_t::MULTICHARUNARY) && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
+            }
+            else if (pass==UNARYMINUS)
+            {
+                if(i!=0&&tokens.at(i-1).value()=="-" && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
-                    double evaluatedUnary=evaluateUnary(tokens.at(i-1), tokens.at(i), xValue);
+                    double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
                     std::ostringstream evaluatedResultAsOSStream;
                     evaluatedResultAsOSStream << evaluatedUnary;
                     tokens.at(i-1)=token(evaluatedResultAsOSStream.str());
