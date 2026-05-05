@@ -164,11 +164,11 @@ class token
             throw std::runtime_error("tokenType==tokenType_t::INVALID");
         }
 
-        if(tokenType==token_t::ROOT)
-        {
-            std::cerr<<"\nRoot not implemented yet lmao\n";
-            std::terminate();
-        }
+        // if(tokenType==token_t::ROOT)
+        // {
+        //     std::cerr<<"\nRoot not implemented yet lmao\n";
+        //     std::terminate();
+        // }
         tokenCategory=determineTokenCategory(tokenType);
         tokenValue = value;
     }
@@ -207,7 +207,7 @@ class token
 std::vector<token> getTokens(const std::string&);
 std::vector<double> getVariableArgs(std::vector<token>&);
 double calculation(std::vector<token>, double xValue=NAN);
-double evaluateRoot(std::vector<token>, double xValue=NAN);
+double evaluateRoot(token token, double xValue=NAN);
 double evaluateUnary(token, token, double xValue=NAN);
 double evaluateBinary(token, token, token, double xValue=NAN);
 
@@ -351,7 +351,7 @@ std::vector<token> getTokens(const std::string &input)
             for(uint j=i; j<input.length() && nestingLevel>0; j++)
             {
                 if(input.at(j)==')') nestingLevel--;
-                else if(input.at(j)=='(' && j!=i) nestingLevel++;
+                else if(input.at(j)=='(') nestingLevel++;
                 currentToken.push_back(input.at(j));
                 i=j;
             }
@@ -448,7 +448,7 @@ double calculation(std::vector<token> tokens, double xValue)
                 }
                 else if(tokens.at(i).type()==token_t::ROOT)
                 {
-                    double evaluatedRoot=evaluateRoot(getTokens(tokens.at(i).value()), xValue);
+                    double evaluatedRoot=evaluateRoot(tokens.at(i).value(), xValue);
                     std::ostringstream evaluatedRootAsOSStream;
                     evaluatedRootAsOSStream << evaluatedRoot;
                     tokens.at(i) = token(evaluatedRootAsOSStream.str());
@@ -540,17 +540,22 @@ double calculation(std::vector<token> tokens, double xValue)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-double evaluateRoot(std::vector<token> tokens, double xValue)
-{ 
-    double result{};
-    for(uint i{}; i<tokens.size(); i++)
-    {
-        if(tokens.at(i).type()==token_t::SUBEXPR) calculation(getTokens(tokens.at(i).value()), xValue);
-        if(tokens.at(i).type()==token_t::ROOT) evaluateRoot(getTokens(tokens.at(i).value()), xValue);
-    }    
+double evaluateRoot(token rootToken, double xValue)
+{
+    //This function is very hacky.
+    std::vector<token> subtokens;
+    subtokens=(getTokens('('+(rootToken.value().substr(5/*char after (*/,rootToken.value().find(',')-5))+')'));
+    double denominator=calculation(subtokens);
+
+    subtokens.at(0)=token('('+(rootToken.value().substr(rootToken.value().find(',')+1,rootToken.value().length()-rootToken.value().find(',')-2))+')');
+
+    double enumerator=calculation(subtokens, xValue); //root(2,4) 7,9-7-1
+   
+    if(denominator==0) throw std::runtime_error("0th root is undefined");
+    return std::pow(enumerator, 1/denominator);
+
     //root(2,4) == pow(4, 1/2)
     //return std::pow(right, 1/rootvalue)
-    return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
