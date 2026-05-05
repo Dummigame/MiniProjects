@@ -360,20 +360,20 @@ std::vector<token> getTokens(const std::string &input)
                 i=j;
             }
         }
-        else for(fixOffByOne=true; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || input.at(i)=='e'); i++)
-        {
-            if(i+1<input.length() && input.at(i)=='e' && (input.at(i+1)=='+' || input.at(i+1)=='-'))
-            {
-                currentToken.push_back(input.at(i));
-                i++;
-            }
-            currentToken.push_back(input.at(i));
-        }
-        if(fixOffByOne)
-        {
-            fixOffByOne=false;
-            i--;
-        }
+        // else for(fixOffByOne=true; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || input.at(i)=='e'); i++)
+        // {
+        //     if(i+1<input.length() && input.at(i)=='e' && (input.at(i+1)=='+' || input.at(i+1)=='-'))
+        //     {
+        //         currentToken.push_back(input.at(i));
+        //         i++;
+        //     }
+        //     currentToken.push_back(input.at(i));
+        // }
+        // if(fixOffByOne)
+        // {
+        //     fixOffByOne=false;
+        //     i--;
+        // }
         tokens.push_back({currentToken});
         currentToken.clear();
     }
@@ -587,7 +587,8 @@ double evaluateUnary(token numberString, token operation, double xValue)
     if(operation.value()=="!!")
         for(int i{static_cast<int>(std::round(number))%2+2}; i<static_cast<int>(std::round(number))+1; i+=2)
         {
-            int numberAsInt{static_cast<int>(std::round(number))};
+            if(number>=300.5) throw std::runtime_error("Input for factorial too large!");
+            uint numberAsInt{static_cast<uint>(std::round(number))};
             if(numberAsInt>300) throw std::runtime_error("Input for double factorial too large!");
             if(numberAsInt==0) return 1.0;
             if(numberAsInt<=3) return numberAsInt;
@@ -596,7 +597,8 @@ double evaluateUnary(token numberString, token operation, double xValue)
     else if(operation.value()=="!")
         for(int i{1}; i<static_cast<int>(std::round(number))+1; i++)
         {
-            int numberAsInt{static_cast<int>(std::round(number))};
+            if(number>=170.5) throw std::runtime_error("Input for factorial too large!");
+            uint numberAsInt{static_cast<uint>(std::round(number))};
             if(numberAsInt>170) throw std::runtime_error("Input for factorial too large!");
             if(numberAsInt==0) return 1.0;
             if(numberAsInt<=2) return numberAsInt;
