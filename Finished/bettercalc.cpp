@@ -360,20 +360,20 @@ std::vector<token> getTokens(const std::string &input)
                 i=j;
             }
         }
-        // else for(fixOffByOne=true; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || input.at(i)=='e'); i++)
-        // {
-        //     if(i+1<input.length() && input.at(i)=='e' && (input.at(i+1)=='+' || input.at(i+1)=='-'))
-        //     {
-        //         currentToken.push_back(input.at(i));
-        //         i++;
-        //     }
-        //     currentToken.push_back(input.at(i));
-        // }
-        // if(fixOffByOne)
-        // {
-        //     fixOffByOne=false;
-        //     i--;
-        // }
+        else for(fixOffByOne=true; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || input.at(i)=='e'); i++)
+        {
+            if(i+1<input.length() && input.at(i)=='e' && (input.at(i+1)=='+' || input.at(i+1)=='-'))
+            {
+                currentToken.push_back(input.at(i));
+                i++;
+            }
+            currentToken.push_back(input.at(i));
+        }
+        if(fixOffByOne)
+        {
+            fixOffByOne=false;
+            i--;
+        }
         tokens.push_back({currentToken});
         currentToken.clear();
     }
