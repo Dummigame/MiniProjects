@@ -588,6 +588,7 @@ double evaluateUnary(token numberString, token operation, double xValue)
         for(int i{static_cast<int>(std::round(number))%2+2}; i<static_cast<int>(std::round(number))+1; i+=2)
         {
             int numberAsInt{static_cast<int>(std::round(number))};
+            if(numberAsInt>300) throw std::runtime_error("Input for double factorial too large!");
             if(numberAsInt==0) return 1.0;
             if(numberAsInt<=3) return numberAsInt;
             result*=i;
@@ -596,6 +597,7 @@ double evaluateUnary(token numberString, token operation, double xValue)
         for(int i{1}; i<static_cast<int>(std::round(number))+1; i++)
         {
             int numberAsInt{static_cast<int>(std::round(number))};
+            if(numberAsInt>170) throw std::runtime_error("Input for factorial too large!");
             if(numberAsInt==0) return 1.0;
             if(numberAsInt<=2) return numberAsInt;
             result*=i;
