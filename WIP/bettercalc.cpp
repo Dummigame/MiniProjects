@@ -49,7 +49,7 @@ bool isNumber(const std::string &input)
     uint dotCount{};
     uint eCount{};
 
-    if(input=="inf") throw std::runtime_error("Encountered infinity");
+    if(input.find("inf")!=std::string::npos) throw std::runtime_error("Encountered infinity");
     for(uint i{}; i<input.length(); i++)
     {
         if(input.at(0)=='-') continue;
