@@ -349,7 +349,7 @@ void displayHelp()
 
 bool isValidInput(const char c)
 {
-    return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'||c==',';
+    return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'||c==','||c=='e';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -430,14 +430,12 @@ std::vector<token> getTokens(const std::string &input)
                 }
                 else if(inFunctionCall && nestingLevel<=nestingOfFunction && input.at(i)==')' && rootHasTwoArgs==false)
                 {
-                    tokens.push_back(','+input.substr(5/*char after root(<-*/,input.length()-6));
-                    i++;
+                    tokens.push_back(','+input.substr(startOfFunction+5/*char after root(<-*/,i-startOfFunction-5));
                     break;
                 }
                 else if(inFunctionCall && nestingLevel<=nestingOfFunction && input.at(i)==')' && rootHasTwoArgs==true)
                 {
                     tokens.push_back(input.substr(endOfFirstArg,i-endOfFirstArg));
-                    i++;
                     break;
                 }
                 if(input.at(i)==')') nestingLevel--;
@@ -513,11 +511,11 @@ double calculation(std::vector<token> tokens, double xValue)
     {
         if(tokens.at(i).type()==token_t::VARIABLE && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
             tokens.insert(tokens.begin()+i++, token("*"));
-        if(tokens.at(i).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i).type()!=token_t::ROOTARGLEFT && tokens.at(i).type()!=token_t::ROOTARGRIGHT && tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR)
+        if(tokens.at(i).typeCategory()==tokenCategory_t::SUBEXPR && /*tokens.at(i).type()!=token_t::ROOTARGLEFT && tokens.at(i).type()!=token_t::ROOTARGRIGHT && */tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR)
             tokens.insert(tokens.begin()+i++, token("*"));
         if(tokens.at(i).value()=="-" && tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR)
             tokens.insert(tokens.begin()+i++, token("+"));
-        if(tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i-1).type()!=token_t::ROOTARGLEFT && tokens.at(i-1).type()!=token_t::ROOTARGRIGHT && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR)
+        if(tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR && /*tokens.at(i-1).type()!=token_t::ROOTARGLEFT && tokens.at(i-1).type()!=token_t::ROOTARGRIGHT &&*/ tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR)
             tokens.insert(tokens.begin()+i++, token("*"));
     }
 
@@ -706,14 +704,15 @@ double evaluateUnary(token numberString, token operation, double xValue)
 (15/root(2+4,10-2)): SubExpr                            -> SUBEXPR
     15: Number                                          -> NUMBER
     /: BinaryOp                                         -> OPERATOR
-    root(2+4,10-2): Root                                -> SUBEXPR
-        2: Number                                       -> NUMBER
-        +: BinaryOp                                     -> OPERATOR
-        4: Number                                       -> NUMBER
-        ,: ArgSeparator?
-        10: Number                                      -> NUMBER
-        -: UnaryOp (Will later be treated as +-)        -> OPERATOR
-        2: Numbers                                      -> NUMBER
+    root(2+4,10-2) 
+        2+4: RootArgLeft                                -> SUBEXPR
+            2: Number                                   -> NUMBER
+            +: BinaryOp                                 -> OPERATOR
+            4: Number                                   -> NUMBER
+        10-2: RootArgRight                              -> SUBEXPR
+            10: Number                                  -> NUMBER
+            -: UnaryMinus                               -> OPERATOR
+            2: Number                                   -> NUMBER
 -:UnaryOp (Will later be treated as +-)                 -> OPERATOR
 25:Number                                               -> NUMBER
 x:Variable (Will later be replaced by Number)           -> NUMBER
