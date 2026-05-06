@@ -25,7 +25,8 @@ enum class token_t
     MULTICHARBINARY,
     MULTICHARUNARY,
     NUMBER,
-    ROOT,
+    ROOTARGRIGHT,
+    ROOTARGLEFT,
     SUBEXPR,
     VARIABLE,
     INVALID
@@ -35,6 +36,7 @@ enum class tokenCategory_t
 {
     NUMBER,
     SUBEXPR,
+    ROOTARG,
     OPERATOR
 };
 
@@ -98,7 +100,9 @@ class token
             if(isUnaryOp(value.at(0)) && isUnaryOp(value.at(1)) && value.at(0)==value.at(1) && value.at(0)=='!') return token_t::MULTICHARUNARY;
         }
         if(isNumber(value)) return token_t::NUMBER;
-        else if(isRoot(value)) return token_t::ROOT;
+        //else if(isRoot(value)) return token_t::ROOT;
+        else if(isRootArgRight(value)) return token_t::ROOTARGRIGHT;
+        else if(isRootArgLeft(value)) return token_t::ROOTARGLEFT;
         else if(isSubexpr(value)) return token_t::SUBEXPR;
         else if(value=="x") return token_t::VARIABLE;
         return token_t::INVALID;
@@ -114,26 +118,24 @@ class token
         return c=='!'|| c=='-';
     }
     ///////////////////////////////////////////////
-    static bool isRoot(std::string &input)
+    bool isRootArgRight(std::string &input)
     {
-        uint argc{1};
+        if(input.at(0)!=',') return false;
+        input.erase(0,1);
         for(uint i{}; i<input.length(); i++)
         {
-            //root(expr,expr)
-            if(i==0)
-            {
-                if(input.find("root(") != 0) return false;
-                i += input.find("root(")+5;
-            }
-
-            if(i>=input.length()) throw std::runtime_error("Syntax error in root() call!");
-            if(input.find(',') == std::string::npos)
-            {
-                input.insert(i, "2,");
-            }
-            if(input.at(i)==',') argc++;
-            if(argc>2) throw std::runtime_error("Too many arguments in root() call!");
-            if(!(input.at(input.length()-1)==')')) throw std::runtime_error("Did you forget closing parentheses?\n\t   Bad parentheses in root() call!");
+            tokenValue.push_back(input.at(i));
+        }
+        return true;
+    }
+    ///////////////////////////////////////////////
+    bool isRootArgLeft(std::string &input)
+    {
+        if(input.find("root(") != 0) return false;
+        
+        for(uint i{5}; i<input.length(); i++)
+        {
+            tokenValue.push_back(input.at(i));
         }
         return true;
     }
@@ -154,7 +156,7 @@ class token
     static tokenCategory_t determineTokenCategory(token_t type)
     {
         if(type==token_t::NUMBER || type==token_t::VARIABLE) return tokenCategory_t::NUMBER;
-        else if(type==token_t::SUBEXPR) return tokenCategory_t::SUBEXPR;
+        else if(type==token_t::SUBEXPR || type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT) return tokenCategory_t::SUBEXPR;
         else return tokenCategory_t::OPERATOR;
     }
     ///////////////////////////////////////////////
@@ -174,7 +176,7 @@ class token
         //     std::terminate();
         // }
         tokenCategory=determineTokenCategory(tokenType);
-        tokenValue = value;
+        if(tokenValue=="")tokenValue = value;
     }
     ///////////////////////////////////////////////
     double number(double xValue=NAN)
@@ -211,7 +213,7 @@ class token
 std::vector<token> getTokens(const std::string&);
 std::vector<double> getVariableArgs(std::vector<token>&);
 double calculation(std::vector<token>, double xValue=NAN);
-double evaluateRoot(token token, double xValue=NAN);
+double evaluateRoot(token denominator, token enumerator, double xValue=NAN);
 double evaluateUnary(token, token, double xValue=NAN);
 double evaluateBinary(token, token, token, double xValue=NAN);
 
@@ -290,16 +292,43 @@ int main(int argc, char** argv)
             result = calculation(tokens);
             std::ostringstream resultAsOSStream;
             resultAsOSStream<<result;
+            if(resultAsOSStream.str().find("nan")!=std::string::npos)
+            {
+                resultAsOSStream.str("");
+                resultAsOSStream.clear();
+                resultAsOSStream<<"Not a Number";
+            }
+            if(resultAsOSStream.str()=="-0")
+            {
+                resultAsOSStream.str("");
+                resultAsOSStream.clear();
+                resultAsOSStream<<"0";               
+            }
+
             for(unsigned long int i{}; i<resultAsOSStream.str().length()+2; i++) std::cout <<"=";
-            std::cout << "\n " << result << '\n';
+            std::cout << "\n " << resultAsOSStream.str() << '\n';
             for(unsigned long int i{}; i<resultAsOSStream.str().length()+2; i++) std::cout <<"=";
         }
         else for(double xValue=varRange.at(0); xValue<=varRange.at(1); xValue+=varRange.at(2))
         {
             result=calculation(tokens, xValue);
-            std::cout<<"\nFor x = " << xValue << ": " << result;
+            std::ostringstream resultAsOSStream;
+            resultAsOSStream<<result;
+            if(resultAsOSStream.str().find("nan")!=std::string::npos)
+            {
+                resultAsOSStream.str("");
+                resultAsOSStream.clear();
+                resultAsOSStream<<"Not a Number";
+            }
+            if(resultAsOSStream.str()=="-0")
+            {
+                resultAsOSStream.str("");
+                resultAsOSStream.clear();
+                resultAsOSStream<<"0";               
+            }
+            std::cout<<"\nFor x = " << xValue << ": " << resultAsOSStream.str();
         }
-        std::cout<<'\n';
+        std::cout<<"\n";
         equation.clear();
         tokens.clear();
         if(passedInAsArg) break;
@@ -312,7 +341,7 @@ int main(int argc, char** argv)
 
 void displayHelp()
 {
-    std::cout<<"\nThis calculator allows you to write out an equation using numbers +, -, *, /, ^, x, !, !! and ()\n\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them.\nExample: \"3(5\\!\\!*10\\!\\!)\" -> \"3(5!!*10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX\n\n";
+    std::cout<<"\nThis calculator allows you to write out an equation using numbers +, -, *, /, ^, x, !, !! and the function root(denominator, enumerator)\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2.\n\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them.\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX\n\n";
     return;
 }
 
@@ -320,7 +349,7 @@ void displayHelp()
 
 bool isValidInput(const char c)
 {
-    return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!';
+    return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'||c==',';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -329,9 +358,15 @@ bool isValidInput(const char c)
 std::vector<token> getTokens(const std::string &input)
 {
     uint nestingLevel{};
+    uint nestingOfFunction{};
+    uint startOfFunction{};
+    uint endOfFirstArg{};
     std::vector<token> tokens{};
     std::string currentToken{};
+    bool isFunctionCall{};
     bool fixOffByOne{};
+    bool inFunctionCall{};
+    bool rootHasTwoArgs{};
 
     for(uint i{}; i<input.length(); i++)
     {
@@ -362,24 +397,51 @@ std::vector<token> getTokens(const std::string &input)
         else if(input.at(i)=='r' || input.at(i)=='(')
         {
             currentToken.clear();
-            if(input.at(i)=='r')
+            if(input.at(i)=='r') isFunctionCall=true;
+            else isFunctionCall=false;
+            for(; i<input.length() && !isFunctionCall; i++)
             {
-                if(input.find("root(", i)==i)
-                {
-
-                    i+=5;
-                    currentToken.append("root(");
-                    if(i==input.length()) throw std::runtime_error("Bad function call!");
-                }
-                else throw std::runtime_error("Bad function name or stray characters!");
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                currentToken.push_back(input.at(i));
+                if(nestingLevel==0) break;
             }
-            nestingLevel++;
-            for(uint j=i; j<input.length() && nestingLevel>0; j++)
+            for(; i<input.length() && isFunctionCall; i++)
             {
-                if(input.at(j)==')') nestingLevel--;
-                else if(input.at(j)=='(') nestingLevel++;
-                currentToken.push_back(input.at(j));
-                i=j;
+                if(input.at(i)=='r' && !inFunctionCall)
+                {
+                    if(input.find("root(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=5;
+                        nestingLevel++;
+                        currentToken.append("root(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else throw std::runtime_error("Bad function name or stray characters!");
+                }
+                if(inFunctionCall && nestingLevel==nestingOfFunction && input.at(i)==',' && rootHasTwoArgs==false) //std::cout<<input.substr(startOfFunction,i-startOfFunction+1);
+                {
+                    rootHasTwoArgs=true;
+                    endOfFirstArg=i;
+                    tokens.push_back(input.substr(startOfFunction,i-startOfFunction));
+                }
+                else if(inFunctionCall && nestingLevel<=nestingOfFunction && input.at(i)==')' && rootHasTwoArgs==false)
+                {
+                    tokens.push_back(','+input.substr(5/*char after root(<-*/,input.length()-6));
+                    i++;
+                    break;
+                }
+                else if(inFunctionCall && nestingLevel<=nestingOfFunction && input.at(i)==')' && rootHasTwoArgs==true)
+                {
+                    tokens.push_back(input.substr(endOfFirstArg,i-endOfFirstArg));
+                    i++;
+                    break;
+                }
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
             }
         }
         else for(fixOffByOne=true; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || input.at(i)=='e'); i++)
@@ -396,7 +458,7 @@ std::vector<token> getTokens(const std::string &input)
             fixOffByOne=false;
             i--;
         }
-        tokens.push_back({currentToken});
+        if(currentToken!="root(") tokens.push_back({currentToken});
         currentToken.clear();
     }
 
@@ -451,11 +513,11 @@ double calculation(std::vector<token> tokens, double xValue)
     {
         if(tokens.at(i).type()==token_t::VARIABLE && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
             tokens.insert(tokens.begin()+i++, token("*"));
-        if(tokens.at(i).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR)
+        if(tokens.at(i).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i).type()!=token_t::ROOTARGLEFT && tokens.at(i).type()!=token_t::ROOTARGRIGHT && tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR)
             tokens.insert(tokens.begin()+i++, token("*"));
         if(tokens.at(i).value()=="-" && tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR)
             tokens.insert(tokens.begin()+i++, token("+"));
-        if(tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR)
+        if(tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i-1).type()!=token_t::ROOTARGLEFT && tokens.at(i-1).type()!=token_t::ROOTARGRIGHT && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR)
             tokens.insert(tokens.begin()+i++, token("*"));
     }
 
@@ -472,12 +534,15 @@ double calculation(std::vector<token> tokens, double xValue)
                     evaluatedSubexprAsOSStream << evaluatedSubexpr;
                     tokens.at(i) = token(evaluatedSubexprAsOSStream.str());
                 }
-                else if(tokens.at(i).type()==token_t::ROOT)
+                else if(tokens.at(i).type()==token_t::ROOTARGRIGHT)
                 {
-                    double evaluatedRoot=evaluateRoot(tokens.at(i).value(), xValue);
+                    double evaluatedRoot;
+                    if(i==0) evaluatedRoot=evaluateRoot(token("0"),tokens.at(i), xValue);
+                    else evaluatedRoot=evaluateRoot(tokens.at(i-1),tokens.at(i), xValue);
                     std::ostringstream evaluatedRootAsOSStream;
                     evaluatedRootAsOSStream << evaluatedRoot;
                     tokens.at(i) = token(evaluatedRootAsOSStream.str());
+                    if(i>0 && tokens.at(i-1).type()==token_t::ROOTARGLEFT) tokens.erase(tokens.begin()+i-1);
                 }
                 else continue;
             }
@@ -569,22 +634,21 @@ double calculation(std::vector<token> tokens, double xValue)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-double evaluateRoot(token rootToken, double xValue)
+double evaluateRoot(token denominatorArg, token enumeratorArg, double xValue)
 {
-    //This function is very hacky.
-    std::vector<token> subtokens;
-    subtokens=(getTokens('('+(rootToken.value().substr(5/*char after (*/,rootToken.value().find(',')-5))+')'));
-    double denominator=calculation(subtokens);
+    double denominator{};
 
-    subtokens.at(0)=token('('+(rootToken.value().substr(rootToken.value().find(',')+1,rootToken.value().length()-rootToken.value().find(',')-2))+')');
+    std::vector<token> tokenToEval{denominatorArg};
+    if(denominatorArg.type()!=token_t::ROOTARGLEFT) denominator=2;
+    else denominator=calculation(getTokens(denominatorArg.value()), xValue);
 
-    double enumerator=calculation(subtokens, xValue); //root(2,4) 7,9-7-1
-   
+    tokenToEval.at(0)=enumeratorArg;
+    double enumerator=calculation(getTokens(enumeratorArg.value()), xValue);
+
     if(denominator==0) throw std::runtime_error("0th root is undefined");
-    return std::pow(enumerator, 1/denominator);
+    if(denominator==static_cast<int>(denominator) && static_cast<int>(denominator)%2==0 && enumerator<0) throw std::runtime_error("Result not a real number");
 
-    //root(2,4) == pow(4, 1/2)
-    //return std::pow(right, 1/rootvalue)
+    return std::pow(enumerator, 1/denominator);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -612,7 +676,7 @@ double evaluateUnary(token numberString, token operation, double xValue)
     if(operation.value()=="!!")
         for(int i{static_cast<int>(std::round(number))%2+2}; i<static_cast<int>(std::round(number))+1; i+=2)
         {
-            if(number>=300.5) throw std::runtime_error("Input for factorial too large!");
+            if(number>=300.5) throw std::runtime_error("Input for double factorial too large!");
             uint numberAsInt{static_cast<uint>(std::round(number))};
             if(numberAsInt>300) throw std::runtime_error("Input for double factorial too large!");
             if(numberAsInt==0) return 1.0;
