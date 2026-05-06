@@ -77,7 +77,6 @@ bool isNumber(const std::string &input)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class token
 {
-    public:
 
     private:
 
@@ -153,7 +152,7 @@ class token
         return isTrue;
     }
     ///////////////////////////////////////////////
-    static tokenCategory_t determineTokenCategory(token_t type)
+    static tokenCategory_t determineTokenCategory(token_t &type)
     {
         if(type==token_t::NUMBER || type==token_t::VARIABLE) return tokenCategory_t::NUMBER;
         else if(type==token_t::SUBEXPR || type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT) return tokenCategory_t::SUBEXPR;
@@ -170,11 +169,6 @@ class token
             throw std::runtime_error("tokenType==tokenType_t::INVALID");
         }
 
-        // if(tokenType==token_t::ROOT)
-        // {
-        //     std::cerr<<"\nRoot not implemented yet lmao\n";
-        //     std::terminate();
-        // }
         tokenCategory=determineTokenCategory(tokenType);
         if(tokenValue=="")tokenValue = value;
     }
@@ -341,7 +335,7 @@ int main(int argc, char** argv)
 
 void displayHelp()
 {
-    std::cout<<"\nThis calculator allows you to write out an equation using numbers +, -, *, /, ^, x, !, !! and the function root(denominator, enumerator)\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2.\n\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them.\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX\n\n";
+    std::cout<<"\nThis calculator allows you to write out an equation using numbers, +, -, *, /, ^ (or **), x, !, !! and the function root(denominator, enumerator)\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2.\n\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them.\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX\n\n";
     return;
 }
 
@@ -511,11 +505,11 @@ double calculation(std::vector<token> tokens, double xValue)
     {
         if(tokens.at(i).type()==token_t::VARIABLE && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
             tokens.insert(tokens.begin()+i++, token("*"));
-        if(tokens.at(i).typeCategory()==tokenCategory_t::SUBEXPR && /*tokens.at(i).type()!=token_t::ROOTARGLEFT && tokens.at(i).type()!=token_t::ROOTARGRIGHT && */tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR)
+        if(tokens.at(i).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR&&tokens.at(i-1).type()!=token_t::ROOTARGLEFT)
             tokens.insert(tokens.begin()+i++, token("*"));
         if(tokens.at(i).value()=="-" && tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR)
             tokens.insert(tokens.begin()+i++, token("+"));
-        if(tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR && /*tokens.at(i-1).type()!=token_t::ROOTARGLEFT && tokens.at(i-1).type()!=token_t::ROOTARGRIGHT &&*/ tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR)
+        if(tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR&&tokens.at(i).type()!=token_t::ROOTARGRIGHT)
             tokens.insert(tokens.begin()+i++, token("*"));
     }
 
@@ -625,7 +619,7 @@ double calculation(std::vector<token> tokens, double xValue)
         tokens.at(0)=token(xValueAsOSStream.str());
     }
     
-    if(tokens.size()==1) result=std::stod(tokens.at(0).value());
+    if(tokens.size()==1 && tokens.at(0).type()==token_t::NUMBER) result=std::stod(tokens.at(0).value());
     else throw std::runtime_error("Malformed expression!");
     return result;
 }
@@ -682,7 +676,7 @@ double evaluateUnary(token numberString, token operation, double xValue)
             result*=i;
         }
     else if(operation.value()=="!")
-        for(int i{1}; i<static_cast<int>(std::round(number))+1; i++)
+        for(int i{2}; i<static_cast<int>(std::round(number))+1; i++)
         {
             if(number>=170.5) throw std::runtime_error("Input for factorial too large!");
             uint numberAsInt{static_cast<uint>(std::round(number))};
