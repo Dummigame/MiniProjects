@@ -415,7 +415,11 @@ void graph(const std::vector<point>&points, const double yMin, const double yMax
 
     uint zoomReduction{1};
 
-    if(xRange>200 || yRange>100) throw std::runtime_error("Graph would suck very bad lmao");
+    if(yRange>300 || xRange >300)
+    {
+        std::cerr<<"\nThe graph would be too large.\n";
+        return;
+    }
 
     height=yRange;
     length=xRange-1;
