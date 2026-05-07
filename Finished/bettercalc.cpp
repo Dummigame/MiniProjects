@@ -414,19 +414,8 @@ void graph(const std::vector<point>&points, const double yMin, const double yMax
     double yRange=(std::abs(yMax)+std::abs(yMin))/options.xStep;
 
     uint zoomReduction{1};
-    for(; xRange>200; xRange*=0.5)
-    {
-        xClosestToZeroIndex*=0.5;
-        yClosestToZeroIndex*=0.5;
-        yRange*=0.5;
-    }
-    for(; yRange>50; yRange*=0.5) 
-    {
-        
-        xClosestToZeroIndex*=0.5;
-        yClosestToZeroIndex*=0.5;
-        xRange*=0.5;
-    }
+
+    if(xRange>200 || yRange>100) throw std::runtime_error("Graph would suck very bad lmao");
 
     height=yRange;
     length=xRange-1;
