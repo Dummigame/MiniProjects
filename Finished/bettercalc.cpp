@@ -1,3 +1,6 @@
+#include <cstdint>
+#include <cstdlib>
+#include <float.h>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -7,6 +10,15 @@
 
 void displayHelp();
 bool isValidInput(const char);
+
+enum drawPos
+{
+    ZERO,
+    LEFT,
+    RIGHT,
+    TOP,
+    BOTTOM
+};
 
 enum pass
 {
@@ -73,6 +85,27 @@ bool isNumber(const std::string &input)
     }
     return true;
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+struct point
+{
+    double x{};
+    double y{};
+    point(double inX, double inY)
+    {
+        this->x=inX;
+        this->y=inY;
+    }
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct options
+{
+    bool graph{};
+    double xMin{};
+    double xMax{};
+    double xStep{}; //Hey, reference
+};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class token
@@ -205,17 +238,21 @@ class token
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 std::vector<token> getTokens(const std::string&);
-std::vector<double> getVariableArgs(std::vector<token>&);
+void getVariableArgs(std::vector<token>&, options&);
+void graph(const std::vector<point>&points, const double yMin, const double yMax, int yClosestToZeroIndex, int xClosestToZeroIndex, double yClosestToZero, double xClosestToZero, const options &options);
 double calculation(std::vector<token>, double xValue=NAN);
 double evaluateRoot(token denominator, token enumerator, double xValue=NAN);
 double evaluateUnary(token, token, double xValue=NAN);
 double evaluateBinary(token, token, token, double xValue=NAN);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char** argv)
 {
+    options options;
 
     // token number("x");
     // token operand("-");
@@ -245,17 +282,16 @@ int main(int argc, char** argv)
             passedInAsArg=true;
         }
     }
-    std::vector<double> varRange{};
     if(equation.find('x')!=std::string::npos)
     {
         if(argc>3)
         {
-            varRange.push_back(std::stod(argv[2]));
-            varRange.push_back(std::stod(argv[3]));
-            varRange.push_back(std::stod(argv[4]));
+            options.xMin=std::stod(argv[2]);
+            options.xMax=std::stod(argv[3]);
+            options.xStep=std::stod(argv[4]);
             
-            if(varRange[0]>=varRange[1]) throw std::runtime_error("Invalid range!");
-            if(varRange[1]-varRange[0]>varRange[2]*1000) throw std::runtime_error("Too many calculations requested!");
+            if(options.xMin>=options.xMax) throw std::runtime_error("Invalid range!");
+            if(options.xMax-options.xMin>options.xStep*1000) throw std::runtime_error("Too many calculations requested!");
         }
         else throw std::runtime_error("Included variable but did not specify all of the following: min, max, step");
     }
@@ -279,9 +315,9 @@ int main(int argc, char** argv)
         std::vector<token> tokens = getTokens(equation);
         if(!passedInAsArg)
         {
-            varRange = getVariableArgs(tokens);
+            getVariableArgs(tokens, options);
         }
-        if(varRange.empty()) 
+        if(options.xMin==options.xMax) 
         {
             result = calculation(tokens);
             std::ostringstream resultAsOSStream;
@@ -303,34 +339,145 @@ int main(int argc, char** argv)
             std::cout << "\n " << resultAsOSStream.str() << '\n';
             for(unsigned long int i{}; i<resultAsOSStream.str().length()+2; i++) std::cout <<"=";
         }
-        else for(double xValue=varRange.at(0); xValue<=varRange.at(1); xValue+=varRange.at(2))
+        else if(!options.graph)
+            for(double xValue=options.xMin; xValue<=options.xMax; xValue+=options.xStep)
+            {
+                result=calculation(tokens, xValue);
+                std::ostringstream resultAsOSStream;
+                resultAsOSStream<<result;
+                if(resultAsOSStream.str().find("nan")!=std::string::npos)
+                {
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();
+                    resultAsOSStream<<"Not a Number";
+                }
+                if(resultAsOSStream.str()=="-0")
+                {
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();
+                    resultAsOSStream<<"0";               
+                }
+                std::cout<<"\nFor x = " << xValue << ": " << resultAsOSStream.str();
+            }
+        else
         {
-            result=calculation(tokens, xValue);
-            std::ostringstream resultAsOSStream;
-            resultAsOSStream<<result;
-            if(resultAsOSStream.str().find("nan")!=std::string::npos)
+            double largestY{-DBL_MAX};
+            double smallestY{DBL_MAX};
+            double yClosestToZero{DBL_MAX};
+            double xClosestToZero{DBL_MAX};
+            int yClosestToZeroIndex{INT32_MAX};
+            int xClosestToZeroIndex{INT32_MAX};
+            std::vector<point> points;
+            uint i{};
+            for(double xValue=options.xMin; xValue<=options.xMax; xValue+=options.xStep)
             {
-                resultAsOSStream.str("");
-                resultAsOSStream.clear();
-                resultAsOSStream<<"Not a Number";
+                points.push_back(point(xValue,calculation(tokens,xValue)));
+
+                if(std::abs(points.at(i).y)<yClosestToZero)
+                {
+                    yClosestToZero=std::abs(points.at(i).y);
+                    yClosestToZeroIndex=i;
+                }
+                if(std::abs(points.at(i).x)<xClosestToZero) 
+                {
+                    xClosestToZero=std::abs(points.at(i).x);
+                    xClosestToZeroIndex=i;
+                }
+                if(points.at(i).y<smallestY) smallestY=points.at(i).y;
+                if(points.at(i).y>largestY) largestY=points.at(i).y;
+                i++;
             }
-            if(resultAsOSStream.str()=="-0")
-            {
-                resultAsOSStream.str("");
-                resultAsOSStream.clear();
-                resultAsOSStream<<"0";               
-            }
-            std::cout<<"\nFor x = " << xValue << ": " << resultAsOSStream.str();
+            graph(points,smallestY,largestY,yClosestToZeroIndex,xClosestToZeroIndex,yClosestToZero,xClosestToZero,options);        
         }
         std::cout<<"\n";
         equation.clear();
         tokens.clear();
+        options.graph=false;
+        options.xMax=0;
+        options.xMin=0;
+        options.xStep=0;
         if(passedInAsArg) break;
     }
     return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void graph(const std::vector<point>&points, const double yMin, const double yMax, int yClosestToZeroIndex, int xClosestToZeroIndex, double yClosestToZero, double xClosestToZero, const options &options)
+{
+    double length;
+    double height;
+
+    double xRange=points.size();
+    double yRange=(std::abs(yMax)+std::abs(yMin))/options.xStep;
+
+    uint zoomReduction{1};
+    for(; xRange>200; xRange*=0.5)
+    {
+        xClosestToZeroIndex*=0.5;
+        yClosestToZeroIndex*=0.5;
+        yRange*=0.5;
+    }
+    for(; yRange>50; yRange*=0.5) 
+    {
+        
+        xClosestToZeroIndex*=0.5;
+        yClosestToZeroIndex*=0.5;
+        xRange*=0.5;
+    }
+
+    height=yRange;
+    length=xRange-1;
+
+    drawPos yAxisPos=ZERO;
+    if(options.xMin>=0) yAxisPos=LEFT;
+    else if(options.xMax<=0) yAxisPos=RIGHT;
+
+    drawPos xAxisPos=ZERO;
+    // if(yMin>=0) xAxisPos=BOTTOM;
+    // else if(yMax<=0) xAxisPos=TOP;
+
+
+    for(uint rows{}; rows<height; rows++)
+    {
+        for(uint i{}; i<length; i++)
+        {
+            
+            //Plot point
+            if(std::round((points.at(i).y)) == std::round(((height/2)-rows))) std::cout<<'+';
+
+            //Draw Y axis
+            else if(i==0 && rows==0 && yAxisPos==LEFT) std::cout<<'^';
+            else if(i==length-1 && rows==0 && yAxisPos==RIGHT) std::cout<<'^';
+            else if(i==xClosestToZeroIndex && rows==0 && yAxisPos==ZERO) std::cout<<'^';
+
+            else if(i==0 && yAxisPos==LEFT) std::cout<<'|';
+            else if(i==length-1 && yAxisPos==RIGHT) std::cout<<'|';
+            else if(i==xClosestToZeroIndex && rows>0 && yAxisPos==ZERO) std::cout<<'|';
+
+            //Draw X axis
+            else if(
+            (xAxisPos==BOTTOM && rows==height-1 && i<length-1)||
+            (xAxisPos==TOP && rows==0 && i<length-1)||
+            (std::round(yRange/2)==rows && xAxisPos==ZERO && i<length-1)) std::cout<<'-';
+            
+            else if(
+            (xAxisPos==BOTTOM && rows==height-1 && i==length-1)||
+            (xAxisPos==TOP && rows==0 && i==length-1)||
+            (std::round(yRange/2)==rows && xAxisPos==ZERO && i==length-1)) std::cout<<"-  >"; //Man...
+
+            else std::cout<<' ';
+            std::cout<<"  ";
+
+            if(i==length-1) std::cout<<'\n';
+        }
+    }
+
+
+    return;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void displayHelp()
@@ -459,40 +606,35 @@ std::vector<token> getTokens(const std::string &input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<double> getVariableArgs(std::vector<token> &tokens)
+void getVariableArgs(std::vector<token> &tokens, options &options)
 {
-    std::vector<double> varRange{};
     bool obtainedArgs{};
     for(uint i{}; i<tokens.size(); i++)
     {
-        if(tokens.at(i).value().find('x')!=std::string::npos && obtainedArgs==false)
-        {                
-            for(uint j{}; j<3; j++)
-            {
-                if(j==0)    std::cout << "\nSpecify variable minimum: ";
-                if(j==1)    std::cout << "\nSpecify variable maximum: ";
-                if(j==2)    std::cout << "\nSpecify variable increment/step: ";
-                std::string input;
-                std::cin>>input;
-                for(uint l{}; l<input.length(); l++) if(!(isValidInput(input.at(l)))) input.erase(input.begin()+l--);
+        if(tokens.at(i).value().find('x')!=std::string::npos) break;
+        else if(i==tokens.size()-1) return;
+    }
+    std::string input;
 
-                if(isNumber(input))
-                {
-                    varRange.push_back(std::stod(input)); //Min, Max, Step
-                }
-            }
-            std::cin.clear();
-            obtainedArgs=true;
-        }
-    }
-    
-    if(!varRange.empty())
-    {
-        if(varRange[0]>=varRange[1]) throw std::runtime_error("Invalid range!");
-        if(varRange[1]-varRange[0]>varRange[2]*1000) throw std::runtime_error("Too many calculations requested!");
-        std::cin.ignore();
-    }
-    return varRange;
+    std::cout << "\nSpecify variable minimum: ";
+    std::cin>>input;
+    options.xMin=std::stod(input);
+
+    std::cout << "\nSpecify variable maximum: ";
+    std::cin>>input;
+    options.xMax=std::stod(input);
+
+    std::cout << "\nSpecify variable increment/step: ";
+    std::cin>>input;
+    options.xStep=std::stod(input);
+
+    std::cout << "\nGraph? y/n: ";
+    std::cin>>input;
+    if(input.at(0)=='y' || input.at(0)=='Y') options.graph=true;
+    if(options.xMin>=options.xMax) throw std::runtime_error("Invalid range!");
+    if(options.xMax-options.xMin>options.xStep*1000) throw std::runtime_error("Too many calculations requested!");
+    std::cin.ignore();
+    return;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
