@@ -263,23 +263,27 @@ int main(int argc, char** argv)
     {
         if(argc>4)
         {
-            options.xMin=std::stold(argv[2]);
-            options.xMax=std::stold(argv[3]);
+            
+            if(isNumber(argv[2])) options.xMin=std::stold(argv[2]);
+            else throw std::runtime_error("You did not enter a number");
+            if(isNumber(argv[3])) options.xMax=std::stold(argv[3]);
+            else throw std::runtime_error("You did not enter a number");
             if(argv[4][0]=='y' || argv[4][0]=='Y' || argv[4][0]=='g' || argv[4][0]=='G')
             {
                 options.graph=true;
                 options.xStep=0.2;
             }
-            else options.xStep=std::stold(argv[4]);
+            else if(isNumber(argv[4])) options.xStep=std::stold(argv[4]);
+            else throw std::runtime_error("You did not enter a number");
             
             if(options.xMin>=options.xMax) throw std::runtime_error("Invalid range!");
             if(options.xMax-options.xMin>options.xStep*1000) throw std::runtime_error("Too many calculations requested!");
         }
         else throw std::runtime_error("Included variable but did not specify all of the following: min, max, step/graphing(y or g)");
     }
+
     while(true)
     {
-        long double result{};
         if(equation!="") goto passedInAsArg;
         std::cout << "Type your equation (? for help, q to quit):\n=> ";
         std::getline(std::cin, equation);
@@ -291,11 +295,11 @@ int main(int argc, char** argv)
             equation.clear();
             continue;
         }
-        if(equation=="fish")
-        {
-            std::cout<<"\nfish.\n"; //Fish.
-            return 0;
-        }
+        if(equation=="fish")                //Fish.
+        {                                   //Fish.
+            std::cout<<"\nfish.\n";         //Fish.
+            return 0;                       //Fish.
+        }                                   //Fish.
         passedInAsArg:
         for(int i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--); //Basic garbage removal
         if(equation.length()==0) throw std::runtime_error("No valid input");
@@ -306,10 +310,10 @@ int main(int argc, char** argv)
         }
         if(options.xMin==options.xMax) 
         {
-            result = calculation(tokens);
             std::ostringstream resultAsOSStream;
+            resultAsOSStream<< calculation(tokens);        
             resultAsOSStream.precision(LDBL_DIG);
-            resultAsOSStream<<result;
+
             if(resultAsOSStream.str().find("nan")!=std::string::npos)
             {
                 resultAsOSStream.str("");
@@ -330,10 +334,9 @@ int main(int argc, char** argv)
         else if(!options.graph)
             for(long double xValue=options.xMin; xValue<=options.xMax; xValue+=options.xStep)
             {
-                result=calculation(tokens, xValue);
                 std::ostringstream resultAsOSStream;
+                resultAsOSStream<<calculation(tokens, xValue);
                 resultAsOSStream.precision(LDBL_DIG);
-                resultAsOSStream<<result;
                 if(resultAsOSStream.str().find("nan")!=std::string::npos)
                 {
                     resultAsOSStream.str("");
@@ -634,11 +637,13 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
 
     std::cout << "\nSpecify variable minimum: ";
     std::cin>>input;
-    options.xMin=std::stold(input);
+    if(isNumber(input)) options.xMin=std::stold(input);
+    else throw std::runtime_error("You did not enter a number");
 
     std::cout << "\nSpecify variable maximum: ";
     std::cin>>input;
-    options.xMax=std::stold(input);
+    if(isNumber(input)) options.xMax=std::stold(input);
+    else throw std::runtime_error("You did not enter a number");
     
     std::cout << "\nGraph? y/n: ";
     std::cin>>input;
@@ -649,7 +654,8 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
     {
         std::cout << "\nSpecify variable increment/step: ";
         std::cin>>input;
-        options.xStep=std::stold(input);
+        if(isNumber(input)) options.xStep=std::stold(input);
+        else throw std::runtime_error("You did not enter a number");
     }
 
 
