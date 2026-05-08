@@ -52,39 +52,9 @@ enum class tokenCategory_t
     OPERATOR
 };
 
-//Todo: Implement evaluation, recursively call getTokens() for each subexpression and evaluate those first
+bool isNumberPart(char input);
 
-bool isNumberPart(char input)
-{
-    return (input>='0' && input<='9') || input=='.' || input=='e';
-}
-
-bool isNumber(const std::string &input)
-{
-    uint dotCount{};
-    uint eCount{};
-
-    if(input.find("inf")!=std::string::npos) throw std::runtime_error("Encountered infinity");
-    for(uint i{}; i<input.length(); i++)
-    {
-        if(input.at(0)=='-') continue;
-        if(input.at(i)=='e') 
-        {
-            if(i+2<input.length() && input.at(i)=='e' && (input.at(i+1)=='+' || input.at(i+1)=='-')) i+=2;
-            eCount++;
-        }
-        if(input.at(i)=='.')
-        {
-            dotCount++;
-            if(eCount) return false;
-            if(dotCount>1) return false;
-        }
-        if(eCount>1) return false;
-
-        if(!isNumberPart(input.at(i))) return false;
-    }
-    return true;
-}
+bool isNumber(const std::string &input);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct point
@@ -101,9 +71,9 @@ struct point
 
 struct options
 {
-    bool graph{};
+    bool graph{};   //Whether to draw graph or not
     double xMin{};
-    double xMax{};
+    double xMax{};  
     double xStep{}; //Hey, reference
 };
 
@@ -254,22 +224,27 @@ int main(int argc, char** argv)
 {
     options options;
 
-    // token number("x");
-    // token operand("-");
-    // double xValue{6};
-    // std::cout<<evaluateUnary(number, operand, xValue);
-    // return 0;
-
     bool passedInAsArg{};
     std::string equation{};
     if(argc>1)
     {
         equation+=argv[1];
-        if(equation.at(0)=='?')
+        if(equation.length()>2 && equation.at(0)=='-' && equation.at(1)=='-' && (equation.at(2)=='h' || equation.at(2)=='H'))
         {
             displayHelp();
             return 0;
         }
+        else if(equation.length()>1 && equation.at(0)=='-' && (equation.at(1)=='h' || equation.at(1)=='H')) 
+        {
+            displayHelp();
+            return 0;
+        }
+        else if(equation.at(0)=='?' || equation.at(0)=='h' || equation.at(0)=='H')
+        {
+            displayHelp();
+            return 0;
+        }
+        //This code is not very dry.
         if(equation.at(0)=='q'|| equation.at(0)=='Q')
         {
             std::cout<<"\nWhy have you done this..?\n";
@@ -284,16 +259,21 @@ int main(int argc, char** argv)
     }
     if(equation.find('x')!=std::string::npos)
     {
-        if(argc>3)
+        if(argc>4)
         {
             options.xMin=std::stod(argv[2]);
             options.xMax=std::stod(argv[3]);
-            options.xStep=std::stod(argv[4]);
+            if(argv[4][0]=='y' || argv[4][0]=='Y' || argv[4][0]=='g' || argv[4][0]=='G')
+            {
+                options.graph=true;
+                options.xStep=0.2;
+            }
+            else options.xStep=std::stod(argv[4]);
             
             if(options.xMin>=options.xMax) throw std::runtime_error("Invalid range!");
             if(options.xMax-options.xMin>options.xStep*1000) throw std::runtime_error("Too many calculations requested!");
         }
-        else throw std::runtime_error("Included variable but did not specify all of the following: min, max, step");
+        else throw std::runtime_error("Included variable but did not specify all of the following: min, max, step/graphing(y or g)");
     }
     while(true)
     {
@@ -303,7 +283,7 @@ int main(int argc, char** argv)
         std::getline(std::cin, equation);
         if(equation.length()==0) throw std::runtime_error("Empty input");
         if(equation.at(0)=='q' || equation.at(0)=='Q') break;
-        if(equation.at(0)=='?')
+        if(equation.at(0)=='?' || equation.at(0)=='h' || equation.at(0)=='H')
         {
             displayHelp();
             equation.clear();
@@ -415,7 +395,7 @@ void graph(const std::vector<point>&points, const double yMin, const double yMax
 
     uint zoomReduction{1};
 
-    if(yRange>300 || xRange >300)
+    if(yRange>300 || xRange >200)
     {
         std::cerr<<"\nThe graph would be too large.\n";
         return;
@@ -433,71 +413,82 @@ void graph(const std::vector<point>&points, const double yMin, const double yMax
     // else if(yMax<=0) xAxisPos=TOP;
 
 
-    std::ostringstream graph;
+    std::vector<std::string> graph;
+    std::ostringstream graphLine;
     for(uint rows{}; rows<height; rows++)
     {
         for(uint i{}; i<length; i++)
         {
             
             //Plot point
-            if(std::round((points.at(i).y)) == std::round(height/2-rows)) graph<<'+';
+            if(std::round((points.at(i).y)/options.xStep) == std::round(height/2-rows)) graphLine<<'+';
 
             //Draw Y axis
-            else if(i==0 && rows==0 && yAxisPos==LEFT) graph<<'^';
-            else if(i==length-1 && rows==0 && yAxisPos==RIGHT) graph<<'^';
-            else if(i==xClosestToZeroIndex && rows==0 && yAxisPos==ZERO) graph<<'^';
+            else if(i==0 && rows==0 && yAxisPos==LEFT) graphLine<<'^';
+            else if(i==length-1 && rows==0 && yAxisPos==RIGHT) graphLine<<'^';
+            else if(i==xClosestToZeroIndex && rows==0 && yAxisPos==ZERO) graphLine<<'^';
 
-            else if(i==0 && yAxisPos==LEFT) graph<<'|';
-            else if(i==length-1 && yAxisPos==RIGHT) graph<<'|';
-            else if(i==xClosestToZeroIndex && rows>0 && yAxisPos==ZERO) graph<<'|';
+            else if(i==0 && yAxisPos==LEFT) graphLine<<'|';
+            else if(i==length-1 && yAxisPos==RIGHT) graphLine<<'|';
+            else if(i==xClosestToZeroIndex && rows>0 && yAxisPos==ZERO) graphLine<<'|';
 
             //Draw X axis
             else if(
             (xAxisPos==BOTTOM && rows==height-1 && i<length-1)||
             (xAxisPos==TOP && rows==0 && i<length-1)||
-            (std::round(yRange/2)==rows && xAxisPos==ZERO && i<length-1)) graph<<'-';
+            (std::round(yRange/2)==rows && xAxisPos==ZERO && i<length-1)) graphLine<<'-';
             
             else if(
             (xAxisPos==BOTTOM && rows==height-1 && i==length-1)||
             (xAxisPos==TOP && rows==0 && i==length-1)||
-            (std::round(yRange/2)==rows && xAxisPos==ZERO && i==length-1)) graph<<"-  >"; //Man...
+            (std::round(yRange/2)==rows && xAxisPos==ZERO && i==length-1)) graphLine<<"-  >"; //Man...
 
-            else graph<<' ';
-            graph<<"  ";
+            else graphLine<<' ';
+            graphLine<<"  ";
 
-            if(i==length-1) graph<<'\n';
+            if(i==length-1)
+            {
+                graphLine<<'\n';
+                graph.push_back(graphLine.str());
+                graphLine.str("");
+            }
         }
     }
 
     uint plusIndex=length;
-    std::string graphstr = graph.str();
-    // std::vector<std::string> graphLineByLine;
 
-    // for(uint rows{}; rows<height; rows++)
+    // for(uint rows{static_cast<uint>(height-1)}; rows>0; rows--)
     // {
-    //     graphLineByLine.push_back("");
-    //     for(uint i{}; i<length+1; i++)
+    //     for(uint i{}; i<graph.at(rows).length()&&i<graph.at(rows-1).length()-1; i++)
     //     {
-    //         graphLineByLine.at(rows).push_back(graph.str().at(i+(rows*length)-1));
+    //         if(rows<height-1 && rows>0 && graph.at(rows).at(i)=='+' && graph.at(rows-1).find('+', i)==std::string::npos)
+    //         {
+    //             graph.at(rows-1).at(i)='/';
+    //             continue;
+    //         }
+    //         if(rows<height-1 && rows>0 && graph.at(rows).at(i)=='+' && graph.at(rows+1).find('+', i)==std::string::npos)
+    //         {
+    //             graph.at(rows+1).at(i)='/';
+    //             continue;
+    //         }
+    //         if(rows>1 && i>0 && graph.at(rows-1).at(i-1)=='/' && graph.at(rows-1).find('/', i)==std::string::npos &&graph.at(rows-2).find('+')==std::string::npos)
+    //         {
+    //             graph.at(rows-2).at(i)='|';
+    //             continue;
+    //         }
     //     }
     // }
-
-    for(uint rows{static_cast<uint>(height)}; rows>0; rows--)
-    {
-        for(uint i{}; graph.str().at(i)!='\n'; i++)
-        {
-            if(graphstr.at(i)=='+') plusIndex=i;
-            if(i<length-1 && i==plusIndex && graphstr.at(i+1)!='+') graphstr.at(i)='+';
-        }
-    }
-    std::cout<<graphstr;
+    for(uint i{}; i<graph.size(); i++) std::cout<<graph.at(i);
     return;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void displayHelp()
 {
-    std::cout<<"\nThis calculator allows you to write out an equation using numbers, +, -, *, /, ^ (or **), x, !, !! and the function root(denominator, enumerator)\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2.\n\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them.\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX\n\n";
+    std::cout<<"\nThis calculator allows you to write out an equation using numbers, +, -, *, /, ^ (or **), x, !, !! and the function root(denominator, enumerator)"<<
+    "\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2.\n\n"<<
+    "Input from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them."<<
+    "\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX or graphing (g/y)\n\n";
     return;
 }
 
@@ -638,14 +629,20 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
     std::cout << "\nSpecify variable maximum: ";
     std::cin>>input;
     options.xMax=std::stod(input);
-
-    std::cout << "\nSpecify variable increment/step: ";
-    std::cin>>input;
-    options.xStep=std::stod(input);
-
+    
     std::cout << "\nGraph? y/n: ";
     std::cin>>input;
     if(input.at(0)=='y' || input.at(0)=='Y') options.graph=true;
+    options.xStep=0.2;
+
+    if(!options.graph)
+    {
+        std::cout << "\nSpecify variable increment/step: ";
+        std::cin>>input;
+        options.xStep=std::stod(input);
+    }
+
+
     if(options.xMin>=options.xMax) throw std::runtime_error("Invalid range!");
     if(options.xMax-options.xMin>options.xStep*1000) throw std::runtime_error("Too many calculations requested!");
     std::cin.ignore();
@@ -846,6 +843,43 @@ double evaluateUnary(token numberString, token operation, double xValue)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool isNumber(const std::string &input)
+{
+    uint dotCount{};
+    uint eCount{};
+
+    if(input.find("inf")!=std::string::npos) throw std::runtime_error("Encountered infinity");
+    for(uint i{}; i<input.length(); i++)
+    {
+        if(input.at(0)=='-') continue;
+        if(input.at(i)=='e') 
+        {
+            if(i+2<input.length() && input.at(i)=='e' && (input.at(i+1)=='+' || input.at(i+1)=='-')) i+=2;
+            eCount++;
+        }
+        if(input.at(i)=='.')
+        {
+            dotCount++;
+            if(eCount) return false;
+            if(dotCount>1) return false;
+        }
+        if(eCount>1) return false;
+
+        if(!isNumberPart(input.at(i))) return false;
+    }
+    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool isNumberPart(char input)
+{
+    return (input>='0' && input<='9') || input=='.' || input=='e';
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 /*
 
 3+(15/root(2+4,10-2))-25x
