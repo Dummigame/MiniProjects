@@ -24,8 +24,8 @@ enum pass
 {
     SUBEXPRESSIONS,
     UNARYOPS,
-    UNARYMINUS,
     EXPONENTIATION,
+    UNARYMINUS,
     MULTIPLICATION,
     ADDITION
 };
@@ -433,42 +433,64 @@ void graph(const std::vector<point>&points, const double yMin, const double yMax
     // else if(yMax<=0) xAxisPos=TOP;
 
 
+    std::ostringstream graph;
     for(uint rows{}; rows<height; rows++)
     {
         for(uint i{}; i<length; i++)
         {
             
             //Plot point
-            if(std::round((points.at(i).y)) == std::round(((height/2)-rows))) std::cout<<'+';
+            if(std::round((points.at(i).y)) == std::round(height/2-rows)) graph<<'+';
 
             //Draw Y axis
-            else if(i==0 && rows==0 && yAxisPos==LEFT) std::cout<<'^';
-            else if(i==length-1 && rows==0 && yAxisPos==RIGHT) std::cout<<'^';
-            else if(i==xClosestToZeroIndex && rows==0 && yAxisPos==ZERO) std::cout<<'^';
+            else if(i==0 && rows==0 && yAxisPos==LEFT) graph<<'^';
+            else if(i==length-1 && rows==0 && yAxisPos==RIGHT) graph<<'^';
+            else if(i==xClosestToZeroIndex && rows==0 && yAxisPos==ZERO) graph<<'^';
 
-            else if(i==0 && yAxisPos==LEFT) std::cout<<'|';
-            else if(i==length-1 && yAxisPos==RIGHT) std::cout<<'|';
-            else if(i==xClosestToZeroIndex && rows>0 && yAxisPos==ZERO) std::cout<<'|';
+            else if(i==0 && yAxisPos==LEFT) graph<<'|';
+            else if(i==length-1 && yAxisPos==RIGHT) graph<<'|';
+            else if(i==xClosestToZeroIndex && rows>0 && yAxisPos==ZERO) graph<<'|';
 
             //Draw X axis
             else if(
             (xAxisPos==BOTTOM && rows==height-1 && i<length-1)||
             (xAxisPos==TOP && rows==0 && i<length-1)||
-            (std::round(yRange/2)==rows && xAxisPos==ZERO && i<length-1)) std::cout<<'-';
+            (std::round(yRange/2)==rows && xAxisPos==ZERO && i<length-1)) graph<<'-';
             
             else if(
             (xAxisPos==BOTTOM && rows==height-1 && i==length-1)||
             (xAxisPos==TOP && rows==0 && i==length-1)||
-            (std::round(yRange/2)==rows && xAxisPos==ZERO && i==length-1)) std::cout<<"-  >"; //Man...
+            (std::round(yRange/2)==rows && xAxisPos==ZERO && i==length-1)) graph<<"-  >"; //Man...
 
-            else std::cout<<' ';
-            std::cout<<"  ";
+            else graph<<' ';
+            graph<<"  ";
 
-            if(i==length-1) std::cout<<'\n';
+            if(i==length-1) graph<<'\n';
         }
     }
 
+    uint plusIndex=length;
+    std::string graphstr = graph.str();
+    // std::vector<std::string> graphLineByLine;
 
+    // for(uint rows{}; rows<height; rows++)
+    // {
+    //     graphLineByLine.push_back("");
+    //     for(uint i{}; i<length+1; i++)
+    //     {
+    //         graphLineByLine.at(rows).push_back(graph.str().at(i+(rows*length)-1));
+    //     }
+    // }
+
+    for(uint rows{static_cast<uint>(height)}; rows>0; rows--)
+    {
+        for(uint i{}; graph.str().at(i)!='\n'; i++)
+        {
+            if(graphstr.at(i)=='+') plusIndex=i;
+            if(i<length-1 && i==plusIndex && graphstr.at(i+1)!='+') graphstr.at(i)='+';
+        }
+    }
+    std::cout<<graphstr;
     return;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
