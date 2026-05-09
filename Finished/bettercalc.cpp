@@ -1,3 +1,4 @@
+#include <cfloat>
 #include <cstdint>
 #include <cstdlib>
 #include <float.h>
@@ -10,6 +11,16 @@
 
 void displayHelp();
 bool isValidInput(const char);
+
+enum class functions
+{
+    NONE,
+    ROOT,
+    SIN,
+    COS,
+    TAN,
+    COT
+};
 
 enum drawPos
 {
@@ -39,6 +50,7 @@ enum class token_t
     NUMBER,
     ROOTARGRIGHT,
     ROOTARGLEFT,
+    SINARG,
     SUBEXPR,
     VARIABLE,
     INVALID
@@ -61,10 +73,11 @@ struct point
 {
     long double x{};
     long double y{};
-    point(long double inX, long double inY)
+    point(long double x, long double y)
     {
-        this->x=inX;
-        this->y=inY;
+        this->x=x;
+        if(y==INFINITY || y==-INFINITY) this->y=NAN;
+        else this->y=y;
     }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -105,6 +118,7 @@ class token
         //else if(isRoot(value)) return token_t::ROOT;
         else if(isRootArgRight(value)) return token_t::ROOTARGRIGHT;
         else if(isRootArgLeft(value)) return token_t::ROOTARGLEFT;
+        else if(isSinArg(value)) return token_t::SINARG;
         else if(isSubexpr(value)) return token_t::SUBEXPR;
         else if(value=="x") return token_t::VARIABLE;
         return token_t::INVALID;
@@ -120,6 +134,12 @@ class token
         return c=='!'|| c=='-';
     }
     ///////////////////////////////////////////////
+    bool isSinArg(std::string &input)
+    {
+        if(input.find("sin(")!=0) return false;
+        for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
+    }
     bool isRootArgRight(std::string &input)
     {
         if(input.at(0)!=',') return false;
@@ -158,7 +178,7 @@ class token
     static tokenCategory_t determineTokenCategory(token_t &type)
     {
         if(type==token_t::NUMBER || type==token_t::VARIABLE) return tokenCategory_t::NUMBER;
-        else if(type==token_t::SUBEXPR || type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT) return tokenCategory_t::SUBEXPR;
+        else if(type==token_t::SUBEXPR || type==token_t::SINARG || type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT) return tokenCategory_t::SUBEXPR;
         else return tokenCategory_t::OPERATOR;
     }
     ///////////////////////////////////////////////
@@ -211,10 +231,11 @@ class token
 std::vector<token> getTokens(const std::string&);
 void getVariableArgs(std::vector<token>&, options&);
 void graph(const std::vector<point>&points, const long double yMin, const long double yMax, int yClosestToZeroIndex, int xClosestToZeroIndex, long double yClosestToZero, long double xClosestToZero, const options &options);
-long double calculation(std::vector<token>, long double xValue=NAN);
-long double evaluateRoot(token denominator, token enumerator, long double xValue=NAN);
-long double evaluateUnary(token, token, long double xValue=NAN);
-long double evaluateBinary(token, token, token, long double xValue=NAN);
+long double calculation(std::vector<token>, long double xValue);
+long double evaluateRoot(token denominator, token enumerator, long double xValue);
+long double evaluateUnary(token, token, long double xValue);
+long double evaluateBinary(token, token, token, long double xValue);
+long double evaluateSin(token arg, long double xValue); //Evaluate your sins. (sine)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -223,8 +244,10 @@ long double evaluateBinary(token, token, token, long double xValue=NAN);
 
 int main(int argc, char** argv)
 {
-    std::cout.precision(LDBL_DIG);
     options options;
+    std::ostringstream resultAsOSStream;
+    resultAsOSStream.precision(LDBL_DIG);
+    std::cout.precision(LDBL_DIG);
 
     bool passedInAsArg{};
     std::string equation{};
@@ -252,6 +275,11 @@ int main(int argc, char** argv)
             std::cout<<"\nWhy have you done this..?\n";
             return 0;
         }
+        if(equation.find("fish")!=std::string::npos) //Fish.
+        {                                   
+            std::cout<<"\nfish.\n";         
+            return 0;                       
+        }  
         for(int i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--);
         if(equation!="")
         {
@@ -271,7 +299,8 @@ int main(int argc, char** argv)
             if(argv[4][0]=='y' || argv[4][0]=='Y' || argv[4][0]=='g' || argv[4][0]=='G')
             {
                 options.graph=true;
-                options.xStep=0.2;
+                if(argv[4][0]=='g' || argv[4][0]=='G') options.xStep=0.2;
+                else options.xStep=0.05;
             }
             else if(isNumber(argv[4])) options.xStep=std::stold(argv[4]);
             else throw std::runtime_error("You did not enter a number");
@@ -284,9 +313,12 @@ int main(int argc, char** argv)
 
     while(true)
     {
+        std::cout.precision(LDBL_DIG);
+        resultAsOSStream.precision(LDBL_DIG);
         if(equation!="") goto passedInAsArg;
         std::cout << "Type your equation (? for help, q to quit):\n=> ";
         std::getline(std::cin, equation);
+
         if(equation.length()==0) throw std::runtime_error("Empty input");
         if(equation.at(0)=='q' || equation.at(0)=='Q') break;
         if(equation.at(0)=='?' || equation.at(0)=='h' || equation.at(0)=='H')
@@ -294,13 +326,15 @@ int main(int argc, char** argv)
             displayHelp();
             equation.clear();
             continue;
-        }
-        if(equation=="fish")                //Fish.
-        {                                   //Fish.
-            std::cout<<"\nfish.\n";         //Fish.
-            return 0;                       //Fish.
-        }                                   //Fish.
+        }                                 
         passedInAsArg:
+
+        for(uint i{}; i<equation.length(); i++) if(equation.at(i)>='A' && equation.at(i)<='Z') equation.at(i)=equation.at(i)+32;//'X' -> 'x' ToLower
+        if(equation.find("fish")!=std::string::npos) //Fish.
+        {                                   
+            std::cout<<"\nfish.\n";         
+            return 0;                       
+        }  
         for(int i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--); //Basic garbage removal
         if(equation.length()==0) throw std::runtime_error("No valid input");
         std::vector<token> tokens = getTokens(equation);
@@ -308,11 +342,9 @@ int main(int argc, char** argv)
         {
             getVariableArgs(tokens, options);
         }
-        if(options.xMin==options.xMax) 
+        if(options.xMin==options.xMax) //No x found
         {
-            std::ostringstream resultAsOSStream;
-            resultAsOSStream<< calculation(tokens);        
-            resultAsOSStream.precision(LDBL_DIG);
+            resultAsOSStream<< calculation(tokens, NAN);
 
             if(resultAsOSStream.str().find("nan")!=std::string::npos)
             {
@@ -330,13 +362,17 @@ int main(int argc, char** argv)
             for(unsigned long int i{}; i<resultAsOSStream.str().length()+2; i++) std::cout <<"=";
             std::cout << "\n " << resultAsOSStream.str() << '\n';
             for(unsigned long int i{}; i<resultAsOSStream.str().length()+2; i++) std::cout <<"=";
+            resultAsOSStream.str("");
+            resultAsOSStream.clear();
         }
         else if(!options.graph)
+        {
+            std::cout.precision(FLT_DIG);
+            resultAsOSStream.precision(FLT_DIG);
             for(long double xValue=options.xMin; xValue<=options.xMax; xValue+=options.xStep)
             {
-                std::ostringstream resultAsOSStream;
+                if(xValue>(-0.0000002) && xValue<0.0000002) xValue=0;
                 resultAsOSStream<<calculation(tokens, xValue);
-                resultAsOSStream.precision(LDBL_DIG);
                 if(resultAsOSStream.str().find("nan")!=std::string::npos)
                 {
                     resultAsOSStream.str("");
@@ -350,7 +386,10 @@ int main(int argc, char** argv)
                     resultAsOSStream<<"0";               
                 }
                 std::cout<<"\nFor x = " << xValue << ": " << resultAsOSStream.str();
+                resultAsOSStream.str("");
+                resultAsOSStream.clear();
             }
+        }
         else
         {
             long double largestY{-DBL_MAX};
@@ -389,6 +428,8 @@ int main(int argc, char** argv)
         options.xMax=0;
         options.xMin=0;
         options.xStep=0;
+        resultAsOSStream.str("");
+        resultAsOSStream.clear();
         if(passedInAsArg) break;
     }
     return 0;
@@ -403,9 +444,20 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
     long double length;
     long double height;
 
-    long double xRange=points.size();
-    long double yRange=(std::abs(yMax)+std::abs(yMin))/options.xStep;
+    // if(std::abs(yMax)+std::abs(yMin)<=0)
+    // {
+    //     std::cout<<"\nNo valid graph can be drawn as the height is 0.\n";
+    //     return;
+    // }
 
+    long double xRange=points.size();
+    long double yRange=(std::abs(yMax)+std::abs(yMin))/options.xStep+std::abs(yMin*5); //Absurd line
+
+
+    height=yRange+(1/(yRange+0.5))*700; //Trust
+    if(height>yRange*3) height=yRange+15;
+    length=xRange;
+    
     uint zoomReduction{1};
 
     if(yRange>600 || xRange >200)
@@ -413,9 +465,6 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
         std::cerr<<"\nThe graph would be too large.\n";
         return;
     }
-
-    height=yRange;
-    length=xRange-1;
 
     drawPos yAxisPos=ZERO;
     if(options.xMin>=0) yAxisPos=LEFT;
@@ -430,11 +479,24 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
     std::ostringstream graphLine;
     for(uint rows{}; rows<height; rows++)
     {
+        if(rows>height/2+1 && yMin>=(height/2+1-rows)*options.xStep) break; //End if bottom of graph reached
         for(uint i{}; i<length; i++)
         {
+            if(points.at(i).y==INFINITY || points.at(i).y==-INFINITY) throw std::runtime_error("Encountered infinity!");
             
             //Plot point
-            if(std::round((points.at(i).y)/options.xStep) == std::round(height/2-rows)) graphLine<<'+';
+            else if(std::round((points.at(i).y)/options.xStep) == std::round(height/2-rows)) graphLine<<'+';
+            
+            //Draw X axis
+            else if(
+            (xAxisPos==BOTTOM && rows==height-1 && i<length-1)||
+            (xAxisPos==TOP && rows==0 && i<length-1)||
+            (std::round(height/2)==rows && xAxisPos==ZERO && i<length-1)) graphLine<<'-';
+
+            else if(
+            (xAxisPos==BOTTOM && rows==height-1 && i==length-1)||
+            (xAxisPos==TOP && rows==0 && i==length-1)||
+            (std::round(height/2)==rows && xAxisPos==ZERO && i==length-1)) graphLine<<"-  >"; //Man...
 
             //Draw Y axis
             else if(i==0 && rows==0 && yAxisPos==LEFT) graphLine<<'^';
@@ -444,17 +506,6 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
             else if(i==0 && yAxisPos==LEFT) graphLine<<'|';
             else if(i==length-1 && yAxisPos==RIGHT) graphLine<<'|';
             else if(i==xClosestToZeroIndex && rows>0 && yAxisPos==ZERO) graphLine<<'|';
-
-            //Draw X axis
-            else if(
-            (xAxisPos==BOTTOM && rows==height-1 && i<length-1)||
-            (xAxisPos==TOP && rows==0 && i<length-1)||
-            (std::round(yRange/2)==rows && xAxisPos==ZERO && i<length-1)) graphLine<<'-';
-            
-            else if(
-            (xAxisPos==BOTTOM && rows==height-1 && i==length-1)||
-            (xAxisPos==TOP && rows==0 && i==length-1)||
-            (std::round(yRange/2)==rows && xAxisPos==ZERO && i==length-1)) graphLine<<"-  >"; //Man...
 
             else graphLine<<' ';
             graphLine<<"  ";
@@ -501,7 +552,7 @@ void displayHelp()
     std::cout<<"\nThis calculator allows you to write out an equation using numbers, +, -, *, /, ^ (or **), x, !, !! and the function root(denominator, enumerator)"<<
     "\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2.\n\n"<<
     "Input from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them."<<
-    "\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX or graphing (g/y)\n\n";
+    "\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX or graphing (g/y, y for high zoom)\n\n";
     return;
 }
 
@@ -509,7 +560,7 @@ void displayHelp()
 
 bool isValidInput(const char c)
 {
-    return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'||c==','||c=='e';
+    return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'||c==','||c=='e'||c=='s'||c=='i'||c=='n';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -523,7 +574,7 @@ std::vector<token> getTokens(const std::string &input)
     uint endOfFirstArg{};
     std::vector<token> tokens{};
     std::string currentToken{};
-    bool isFunctionCall{};
+    functions functionCallType{};
     bool fixOffByOne{};
     bool inFunctionCall{};
     bool rootHasTwoArgs{};
@@ -554,19 +605,56 @@ std::vector<token> getTokens(const std::string &input)
             }
         }
         else if (input.at(i)=='x') currentToken='x';
-        else if(input.at(i)=='r' || input.at(i)=='(')
+        else if(input.at(i)=='r'|| input.at(i)=='s' || input.at(i)=='(')
         {
             currentToken.clear();
-            if(input.at(i)=='r') isFunctionCall=true;
-            else isFunctionCall=false;
-            for(; i<input.length() && !isFunctionCall; i++)
+            if(input.at(i)=='r') functionCallType=functions::ROOT;
+            else if(input.at(i)=='s')functionCallType=functions::SIN;
+            else functionCallType=functions::NONE;
+
+            for(; i<input.length() && functionCallType==functions::SIN; i++)
+            {
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                currentToken.push_back(input.at(i));
+                if(nestingLevel==0) break;                
+            }
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::SIN; i++)
+            {
+                if(input.at(i)=='s' && !inFunctionCall)
+                {
+                    if(input.find("sin(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=4;
+                        nestingLevel++;
+                        currentToken.append("sin(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else throw std::runtime_error("Bad function name or stray characters!");
+                }
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    break;      
+                }
+            }
+
+
+            
+            for(; i<input.length() && functionCallType==functions::NONE; i++)
             {
                 if(input.at(i)==')') nestingLevel--;
                 else if(input.at(i)=='(') nestingLevel++;
                 currentToken.push_back(input.at(i));
                 if(nestingLevel==0) break;
             }
-            for(; i<input.length() && isFunctionCall; i++)
+            for(; i<input.length() && functionCallType==functions::ROOT; i++)
             {
                 if(input.at(i)=='r' && !inFunctionCall)
                 {
@@ -616,7 +704,7 @@ std::vector<token> getTokens(const std::string &input)
             fixOffByOne=false;
             i--;
         }
-        if(currentToken!="root(") tokens.push_back({currentToken});
+        if(currentToken!="root(" && currentToken.find("sin(")!=0) tokens.push_back({currentToken});
         currentToken.clear();
     }
 
@@ -647,8 +735,14 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
     
     std::cout << "\nGraph? y/n: ";
     std::cin>>input;
-    if(input.at(0)=='y' || input.at(0)=='Y') options.graph=true;
-    options.xStep=0.2;
+    if(input.at(0)=='y' || input.at(0)=='Y')
+    {
+        options.graph=true;
+        std::cout<<"\nHigh zoom? Use small ranges with this. y/n: ";
+        std::cin>>input;
+        if(input.at(0)=='y' || input.at(0)=='Y') options.xStep=0.05;
+        else options.xStep=0.2;
+    }
 
     if(!options.graph)
     {
@@ -669,6 +763,8 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
 
 long double calculation(std::vector<token> tokens, long double xValue)
 {
+    std::ostringstream resultAsOSStream;
+    resultAsOSStream.precision(LDBL_DIG);
     long double result{};
 
     for(uint i{1}; i<tokens.size(); i++)
@@ -692,21 +788,30 @@ long double calculation(std::vector<token> tokens, long double xValue)
                 if(tokens.at(i).type()==token_t::SUBEXPR)
                 {
                     long double evaluatedSubexpr=calculation(getTokens(tokens.at(i).value()), xValue);
-                    std::ostringstream evaluatedSubexprAsOSStream;
-                    evaluatedSubexprAsOSStream.precision(LDBL_DIG);
-                    evaluatedSubexprAsOSStream << evaluatedSubexpr;
-                    tokens.at(i) = token(evaluatedSubexprAsOSStream.str());
+                    resultAsOSStream << evaluatedSubexpr;
+                    tokens.at(i) = token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();
                 }
                 else if(tokens.at(i).type()==token_t::ROOTARGRIGHT)
                 {
                     long double evaluatedRoot;
                     if(i==0) evaluatedRoot=evaluateRoot(token("0"),tokens.at(i), xValue);
                     else evaluatedRoot=evaluateRoot(tokens.at(i-1),tokens.at(i), xValue);
-                    std::ostringstream evaluatedRootAsOSStream;
-                    evaluatedRootAsOSStream.precision(LDBL_DIG);
-                    evaluatedRootAsOSStream << evaluatedRoot;
-                    tokens.at(i) = token(evaluatedRootAsOSStream.str());
+                    resultAsOSStream << evaluatedRoot;
+                    tokens.at(i) = token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();
+                    
                     if(i>0 && tokens.at(i-1).type()==token_t::ROOTARGLEFT) tokens.erase(tokens.begin()+i-1);
+                }
+                else if(tokens.at(i).type()==token_t::SINARG)
+                {
+                    long double evaluatedSin=evaluateSin(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSin;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();                    
                 }
                 else continue;
             }
@@ -716,23 +821,10 @@ long double calculation(std::vector<token> tokens, long double xValue)
                 if((tokens.at(i).type()==token_t::UNARYOP || tokens.at(i).type()==token_t::MULTICHARUNARY) && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
                 {
                     long double evaluatedUnary=evaluateUnary(tokens.at(i-1), tokens.at(i), xValue);
-                    std::ostringstream evaluatedResultAsOSStream;
-                    evaluatedResultAsOSStream.precision(LDBL_DIG);
-                    evaluatedResultAsOSStream << evaluatedUnary;
-                    tokens.at(i-1)=token(evaluatedResultAsOSStream.str());
-                    tokens.erase(tokens.begin()+i);
-                    i--;
-                }
-            }
-            else if (pass==UNARYMINUS)
-            {
-                if(i!=0&&tokens.at(i-1).value()=="-" && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
-                {
-                    long double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
-                    std::ostringstream evaluatedResultAsOSStream;
-                    evaluatedResultAsOSStream.precision(LDBL_DIG);
-                    evaluatedResultAsOSStream << evaluatedUnary;
-                    tokens.at(i-1)=token(evaluatedResultAsOSStream.str());
+                    resultAsOSStream << evaluatedUnary;
+                    tokens.at(i-1)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();
                     tokens.erase(tokens.begin()+i);
                     i--;
                 }
@@ -744,18 +836,41 @@ long double calculation(std::vector<token> tokens, long double xValue)
                     {
                         if(i-2<tokens.size())
                         {
+                            //Account for something like x^-1
+                            if((tokens.at(i-2).value()=="^" || tokens.at(i-1).value()=="**") && tokens.at(i-1).value()=="-" && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
+                            {
+                                long double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
+                                resultAsOSStream << evaluatedUnary;
+                                tokens.at(i-1)=token(resultAsOSStream.str());
+                                resultAsOSStream.str("");
+                                resultAsOSStream.clear();
+                                tokens.erase(tokens.begin()+i);                               
+                            }
                             if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="^" || tokens.at(i-1).value()=="**") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                             {
                                 long double evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
-                                std::ostringstream evaluatedResultAsOSStream;
-                                evaluatedResultAsOSStream.precision(LDBL_DIG);
-                                evaluatedResultAsOSStream << evaluatedBinary;
-                                tokens.at(i-2)=token(evaluatedResultAsOSStream.str());
+                                resultAsOSStream << evaluatedBinary;
+                                tokens.at(i-2)=token(resultAsOSStream.str());
                                 tokens.erase(tokens.begin()+i-1);
                                 tokens.erase(tokens.begin()+i-1);
+                                resultAsOSStream.str("");
+                                resultAsOSStream.clear();
                             }
                         }
                     }
+            }
+            else if (pass==UNARYMINUS)
+            {
+                if(i!=0&&tokens.at(i-1).value()=="-" && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
+                {
+                    long double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
+                    resultAsOSStream << evaluatedUnary;
+                    tokens.at(i-1)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();
+                    tokens.erase(tokens.begin()+i);
+                    i--;
+                }
             }
             else if(pass==MULTIPLICATION)
             {
@@ -763,10 +878,10 @@ long double calculation(std::vector<token> tokens, long double xValue)
                 if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="*" || tokens.at(i-1).value()=="/") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
                     long double evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
-                    std::ostringstream evaluatedResultAsOSStream;
-                    evaluatedResultAsOSStream.precision(LDBL_DIG);
-                    evaluatedResultAsOSStream << evaluatedBinary;
-                    tokens.at(i-2)=token(evaluatedResultAsOSStream.str());
+                    resultAsOSStream << evaluatedBinary;
+                    tokens.at(i-2)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();
                     tokens.erase(tokens.begin()+i-1);
                     tokens.erase(tokens.begin()+i-1);
                     i-=2;
@@ -778,12 +893,12 @@ long double calculation(std::vector<token> tokens, long double xValue)
                 if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="+" || tokens.at(i-1).value()=="-") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
                     long double evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
-                    std::ostringstream evaluatedResultAsOSStream;
-                    evaluatedResultAsOSStream.precision(LDBL_DIG);
-                    evaluatedResultAsOSStream << evaluatedBinary;
-                    tokens.at(i-2)=token(evaluatedResultAsOSStream.str());
+                    resultAsOSStream << evaluatedBinary;
+                    tokens.at(i-2)=token(resultAsOSStream.str());
                     tokens.erase(tokens.begin()+i-1);
                     tokens.erase(tokens.begin()+i-1);
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();
                     i-=2;
                 }
             }
@@ -791,15 +906,20 @@ long double calculation(std::vector<token> tokens, long double xValue)
     }
     if(tokens.size()==1 && tokens.at(0).value()=="x")
     {
-        std::ostringstream xValueAsOSStream;
-        xValueAsOSStream.precision(LDBL_DIG);
-        xValueAsOSStream<<xValue;
-        tokens.at(0)=token(xValueAsOSStream.str());
+        resultAsOSStream<<xValue;
+        tokens.at(0)=token(resultAsOSStream.str());
     }
     
     if(tokens.size()==1 && tokens.at(0).type()==token_t::NUMBER) result=std::stold(tokens.at(0).value());
     else throw std::runtime_error("Malformed expression!");
     return result;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+long double evaluateSin(token arg, long double xValue)
+{
+    return std::sin(calculation(getTokens(arg.value()), xValue));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -816,7 +936,7 @@ long double evaluateRoot(token denominatorArg, token enumeratorArg, long double 
     long double enumerator=calculation(getTokens(enumeratorArg.value()), xValue);
 
     if(denominator==0) throw std::runtime_error("0th root is undefined");
-    if(denominator==static_cast<int>(denominator) && static_cast<int>(denominator)%2==0 && enumerator<0) throw std::runtime_error("Result not a real number");
+    if(denominator==static_cast<int>(denominator) && static_cast<int>(denominator)%2==0 && enumerator<0) throw std::runtime_error("Result of a root() call is not a real number");
 
     return std::pow(enumerator, 1/denominator);
 }
@@ -873,7 +993,7 @@ bool isNumber(const std::string &input)
     uint dotCount{};
     uint eCount{};
 
-    if(input.find("inf")!=std::string::npos) throw std::runtime_error("Encountered infinity");
+    if(input=="inf") return true;
     for(uint i{}; i<input.length(); i++)
     {
         if(input.at(0)=='-') continue;
