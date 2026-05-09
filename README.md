@@ -1,7 +1,9 @@
 # Dummigame's Mini Projects.
 
 This repo contains some small files I work on for a bit at a time, potentially even sometimes containing something cool.
+
 <img src="/Assets/graph.png" height="50%" width="50%">
+
 A graph drawn by 'bettercalc.cpp'. Yes, drawing graphs in the terminal... although this is just plotting points, moreso.
 
 
