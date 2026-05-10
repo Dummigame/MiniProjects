@@ -1,7 +1,7 @@
 #include <cfloat>
 #include <cstdint>
 #include <cstdlib>
-#include <float.h>
+#include <cfloat>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -15,7 +15,8 @@ bool isValidInput(const char);
 enum class functions
 {
     NONE,
-    ABS,
+    ABS, //Somehow, I managed to break the Krunner calculator widget with this. ||3|-2| is not 6 bucko
+    ABSASFUN,
     ROOT,
     SIN,
     COS,
@@ -165,8 +166,9 @@ class token
     ///////////////////////////////////////////////
     bool isAbsArg(std::string &input)
     {
-        if(input.at(0)!='|' && input.at(input.length()-1)!='|') return false;
-        for(uint i{1}; i<input.length()-1; i++) tokenValue.push_back(input.at(i));
+        if((input.at(0)!='|' && input.at(input.length()-1)!='|')&&input.find("abs(")!=0) return false;
+        if(input.at(0)=='|') for(uint i{1}; i<input.length()-1; i++) tokenValue.push_back(input.at(i));
+        else for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
         return true;
     }    
     ///////////////////////////////////////////////
@@ -643,10 +645,10 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
 
 void displayHelp()
 {
-    std::cout<<"\nThis calculator allows you to write out an equation using numbers, +, -, *, /, ^ (or **), x, !, !! and the following functions:\n"<<
+    std::cout<<"\nThis calculator allows you to write out an equation using numbers, +, -, *, /, ^ (or **), x, !, !!, |expression|, (expression) and the following functions:\n"<<
     "\troot(denominator, enumerator)\n"<<
     "\tsin(expression), cos(expression), tan(expression), sec(expression), csc(expression), cot(expression)\n"<<
-    "\tfloor(expression), ceil(expression), round(expression)\n"<<
+    "\tfloor(expression), ceil(expression), round(expression), abs(expression)\n"<<
     "\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2.\n\n"<<
     "Input from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them."<<
     "\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX or graphing (g/y, y for high zoom)\n\n";
@@ -658,7 +660,7 @@ void displayHelp()
 bool isValidInput(const char c)
 {
     return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'
-                           ||c==','||c=='e'||c=='s'||c=='i'||c=='n'||c=='c'||c=='a' ||c=='l'||c=='f'||c=='u'||c=='d'||c=='|';
+            ||c==','||c=='e'||c=='s'||c=='i'||c=='n'||c=='c'||c=='a' ||c=='l'||c=='f'||c=='u'||c=='d'||c=='|'||c=='b';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -705,7 +707,7 @@ std::vector<token> getTokens(const std::string &input)
             }
         }
         else if (input.at(i)=='x') currentToken='x';
-        else if(input.at(i)=='r'|| input.at(i)=='s' || input.at(i)=='t' || input.at(i)=='c' || input.at(i)=='|' ||  input.at(i)=='f' || input.at(i)=='(')
+        else if(input.at(i)=='r'|| input.at(i)=='s' || input.at(i)=='t' || input.at(i)=='c' || input.at(i)=='|' ||  input.at(i)=='f' || input.at(i)=='a' || input.at(i)=='(')
         {
             currentToken.clear();
             if(input.at(i)=='r') functionCallType=functions::ROUND;
@@ -714,7 +716,37 @@ std::vector<token> getTokens(const std::string &input)
             else if(input.at(i)=='t')functionCallType=functions::TAN;
             else if(input.at(i)=='f')functionCallType=functions::FLOOR;
             else if(input.at(i)=='|')functionCallType=functions::ABS;
+            else if(input.at(i)=='a')functionCallType=functions::ABSASFUN;
             else functionCallType=functions::NONE;
+
+
+            //Parse abs()
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::ABSASFUN; i++)
+            {
+                if(input.at(i)=='a' && !inFunctionCall)
+                {
+                    if(input.find("abs(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=4;
+                        nestingLevel++;
+                        currentToken.append("abs(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else throw std::runtime_error("Bad function name or stray characters!");
+                }
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;      
+                }
+            }
 
             //Parse |x|... or ||x|| if the user hates me... or ||||x||||. whatever.
             for(startOfFunction=i; i<input.length() && functionCallType==functions::ABS; i++)
@@ -1179,9 +1211,9 @@ long double calculation(std::vector<token> tokens, long double xValue)
                 }
                 else if(tokens.at(i).type()==token_t::ROOTARGRIGHT)
                 {
-                    long double evaluatedRoot;
-                    if(i==0) evaluatedRoot=evaluateRoot(token("0"),tokens.at(i), xValue);
-                    else evaluatedRoot=evaluateRoot(tokens.at(i-1),tokens.at(i), xValue);
+
+                    if(i==0) evaluatedSubexpr=evaluateRoot(token("0"),tokens.at(i), xValue);
+                    else evaluatedSubexpr=evaluateRoot(tokens.at(i-1),tokens.at(i), xValue);
                     resultAsOSStream << evaluatedSubexpr;
                     tokens.at(i) = token(resultAsOSStream.str());
                     resultAsOSStream.str("");
@@ -1438,10 +1470,11 @@ long double evaluateRoot(token denominatorArg, token enumeratorArg, long double 
     tokenToEval.at(0)=enumeratorArg;
     long double enumerator=calculation(getTokens(enumeratorArg.value()), xValue);
 
-    if(denominator==0) throw std::runtime_error("0th root is undefined");
-    if(denominator==static_cast<int>(denominator) && static_cast<int>(denominator)%2==0 && enumerator<0) throw std::runtime_error("Result of a root() call is not a real number");
+    //if(denominator==0) return NAN;
+    if(denominator==static_cast<int>(denominator) && static_cast<int>(denominator)%2==0 && enumerator<0) return NAN;
 
-    return std::pow(enumerator, 1/denominator);
+    if(enumerator<0) return -std::pow(std::abs(enumerator),1/denominator);
+    else return std::pow(enumerator, 1/denominator);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1497,6 +1530,9 @@ bool isNumber(const std::string &input)
     uint eCount{};
 
     if(input=="inf") return true;
+    if(input=="-inf") return true;
+    if(input=="nan") return true;
+    if(input=="-nan") return true;
     for(uint i{}; i<input.length(); i++)
     {
         if(input.at(0)=='-') continue;
