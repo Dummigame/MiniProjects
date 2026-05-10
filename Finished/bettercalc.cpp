@@ -15,6 +15,7 @@ bool isValidInput(const char);
 enum class functions
 {
     NONE,
+    ABS,
     ROOT,
     SIN,
     COS,
@@ -55,6 +56,7 @@ enum class token_t
     NUMBER,
     ROOTARGRIGHT,
     ROOTARGLEFT,
+    ABSARG,
     SINARG,
     COSARG,
     TANARG,
@@ -130,6 +132,7 @@ class token
         else if(isRootArgRight(value)) return token_t::ROOTARGRIGHT;
         else if(isRootArgLeft(value)) return token_t::ROOTARGLEFT;
         else if(isSubexpr(value)) return token_t::SUBEXPR;
+        else if(isAbsArg(value)) return token_t::ABSARG;
         else if(isSinArg(value)) return token_t::SINARG;
         else if(isCosArg(value)) return token_t::COSARG;
         else if(isTanArg(value)) return token_t::TANARG;
@@ -157,6 +160,13 @@ class token
     {
         if(input.find("sin(")!=0) return false;
         for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
+    }    
+    ///////////////////////////////////////////////
+    bool isAbsArg(std::string &input)
+    {
+        if(input.at(0)!='|' && input.at(input.length()-1)!='|') return false;
+        for(uint i{1}; i<input.length()-1; i++) tokenValue.push_back(input.at(i));
         return true;
     }    
     ///////////////////////////////////////////////
@@ -256,7 +266,7 @@ class token
         if(type==token_t::NUMBER || type==token_t::VARIABLE) return tokenCategory_t::NUMBER;
         else if(type==token_t::SUBEXPR || type==token_t::SINARG ||type==token_t::COSARG || type==token_t::TANARG ||
                 type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT ||type==token_t::SECARG ||type==token_t::CSCARG||
-                type==token_t::COTARG || type==token_t::FLOORARG || type==token_t::CEILARG || type==token_t::ROUNDARG) return tokenCategory_t::SUBEXPR;
+                type==token_t::COTARG || type==token_t::FLOORARG || type==token_t::CEILARG || type==token_t::ROUNDARG || type==token_t::ABSARG) return tokenCategory_t::SUBEXPR;
         //else if(type==token_t::SINARG ||type==token_t::COSARG) return tokenCategory_t::FUNCTIONARG;
         else return tokenCategory_t::OPERATOR;
     }
@@ -323,6 +333,7 @@ long double evaluateCot(token arg, long double xValue);
 long double evaluateFloor(token arg, long double xValue);
 long double evaluateCeil(token arg, long double xValue);
 long double evaluateRound(token arg, long double xValue);
+long double evaluateAbs(token arg, long double xValue);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -425,17 +436,20 @@ int main(int argc, char** argv)
         for(int i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--); //Basic garbage removal
 
         int parenthesesImbalance{};
+        uint absValueLineCount{};
         for(uint i{}; i<equation.length(); i++)
         {
+            if(equation.at(i)=='|') absValueLineCount++;
             if(equation.at(i)=='(') parenthesesImbalance++;
             else if(equation.at(i)==')') parenthesesImbalance--;
-            if(equation.length()==i+1 && parenthesesImbalance!=0)
+            if((equation.length()==i+1 && parenthesesImbalance!=0) || parenthesesImbalance<0 || (equation.length()==i+1 && absValueLineCount%2!=0))
             {
                 std::cerr<<"\nParentheses are not balanced!\n\n";
                 equation.clear();
-            } 
+            }
         }
-        if(parenthesesImbalance!=false) continue;
+
+        if(parenthesesImbalance!=0 || absValueLineCount%2!=0) continue;
         
         if(equation.length()==0) throw std::runtime_error("No valid input");
         std::vector<token> tokens = getTokens(equation);
@@ -644,7 +658,7 @@ void displayHelp()
 bool isValidInput(const char c)
 {
     return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'
-                           ||c==','||c=='e'||c=='s'||c=='i'||c=='n'||c=='c'||c=='a' ||c=='l'||c=='f'||c=='u'||c=='d';
+                           ||c==','||c=='e'||c=='s'||c=='i'||c=='n'||c=='c'||c=='a' ||c=='l'||c=='f'||c=='u'||c=='d'||c=='|';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -652,7 +666,8 @@ bool isValidInput(const char c)
 
 std::vector<token> getTokens(const std::string &input)
 {
-    uint nestingLevel{};
+    //for(int i{}; i<input.length(); i++) if(!(isValidInput(input.at(i)))) throw std::runtime_error("Invalid input"); //Basic garbage removal
+    int nestingLevel{};
     uint nestingOfFunction{};
     uint startOfFunction{};
     uint endOfFirstArg{};
@@ -662,6 +677,7 @@ std::vector<token> getTokens(const std::string &input)
     bool fixOffByOne{};
     bool inFunctionCall{};
     bool rootHasTwoArgs{};
+    int inParentheses{};
 
     for(uint i{}; i<input.length(); i++)
     {
@@ -689,7 +705,7 @@ std::vector<token> getTokens(const std::string &input)
             }
         }
         else if (input.at(i)=='x') currentToken='x';
-        else if(input.at(i)=='r'|| input.at(i)=='s' || input.at(i)=='t' || input.at(i)=='c' || input.at(i)=='f' || input.at(i)=='(')
+        else if(input.at(i)=='r'|| input.at(i)=='s' || input.at(i)=='t' || input.at(i)=='c' || input.at(i)=='|' ||  input.at(i)=='f' || input.at(i)=='(')
         {
             currentToken.clear();
             if(input.at(i)=='r') functionCallType=functions::ROUND;
@@ -697,7 +713,45 @@ std::vector<token> getTokens(const std::string &input)
             else if(input.at(i)=='c')functionCallType=functions::COS;
             else if(input.at(i)=='t')functionCallType=functions::TAN;
             else if(input.at(i)=='f')functionCallType=functions::FLOOR;
+            else if(input.at(i)=='|')functionCallType=functions::ABS;
             else functionCallType=functions::NONE;
+
+            //Parse |x|... or ||x|| if the user hates me... or ||||x||||. whatever.
+            for(startOfFunction=i; i<input.length() && functionCallType==functions::ABS; i++)
+            {
+                if(!inFunctionCall)
+                {
+                    startOfFunction=i;
+                    for(;input.at(i)=='|' && i<input.length()-1;i++)
+                    {
+                        nestingLevel++;
+                        currentToken.push_back('|');
+                    }
+                    inFunctionCall=true;
+                    nestingOfFunction=nestingLevel;
+                    if(i==input.length()) throw std::runtime_error("Bad function call!");
+                }
+                if(input.at(i)==')')
+                {
+                    inParentheses--;
+                    nestingLevel-=1000;
+                }
+                else if(input.at(i)=='(')
+                {
+                    inParentheses++;
+                    nestingLevel+=1000;
+                }
+                if(i<input.length() && inParentheses==false && input.at(i)=='|') nestingLevel--;
+                if(i>startOfFunction+1 && nestingLevel<=0 && inParentheses==false && input.at(i)=='|')
+                {
+                    currentToken.push_back(input.at(i));
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;
+                }
+                else if(i==input.length()-1) throw std::runtime_error("Bad absolute value... parentheses? Things? Lines?");
+                currentToken.push_back(input.at(i));
+            }
 
             //Parse floor()
             for(currentToken.clear(); i<input.length() && functionCallType==functions::FLOOR; i++)
@@ -1016,8 +1070,9 @@ std::vector<token> getTokens(const std::string &input)
             }
 
         }
-        else for(fixOffByOne=true; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || input.at(i)=='e'); i++)
+        else for(; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || input.at(i)=='e'); i++)
         {
+            fixOffByOne=true;
             if(i+1<input.length() && input.at(i)=='e' && (input.at(i+1)=='+' || input.at(i+1)=='-'))
             {
                 currentToken.push_back(input.at(i));
@@ -1033,6 +1088,7 @@ std::vector<token> getTokens(const std::string &input)
         if(currentToken!="" && currentToken!="root(" && currentToken.find("sin(")!=0 && currentToken.find("cos(")!=0 && currentToken.find("tan(")!=0) tokens.push_back({currentToken});
         currentToken.clear();
         inFunctionCall=false;
+        startOfFunction=0;
     }
 
     return tokens;
@@ -1205,6 +1261,14 @@ long double calculation(std::vector<token> tokens, long double xValue)
                     resultAsOSStream.str("");
                     resultAsOSStream.clear();     
                 }
+                else if(tokens.at(i).type()==token_t::ABSARG)
+                {
+                    evaluatedSubexpr=evaluateAbs(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();     
+                }
                 else continue;
             }
             else if(pass==UNARYOPS)
@@ -1354,6 +1418,11 @@ long double evaluateCeil(token arg, long double xValue)
 long double evaluateRound(token arg, long double xValue)
 {
     return std::round(calculation(getTokens(arg.value()), xValue));
+}
+
+long double evaluateAbs(token arg, long double xValue)
+{
+    return std::abs(calculation(getTokens(arg.value()), xValue));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
