@@ -19,7 +19,12 @@ enum class functions
     SIN,
     COS,
     TAN,
-    COT
+    SEC,
+    CSC,
+    COT,
+    FLOOR,
+    CEIL,
+    ROUND
 };
 
 enum drawPos
@@ -51,6 +56,14 @@ enum class token_t
     ROOTARGRIGHT,
     ROOTARGLEFT,
     SINARG,
+    COSARG,
+    TANARG,
+    SECARG,
+    CSCARG,
+    COTARG,
+    FLOORARG,
+    CEILARG,
+    ROUNDARG,
     SUBEXPR,
     VARIABLE,
     INVALID
@@ -60,7 +73,6 @@ enum class tokenCategory_t
 {
     NUMBER,
     SUBEXPR,
-    ROOTARG,
     OPERATOR
 };
 
@@ -115,11 +127,18 @@ class token
             if(isUnaryOp(value.at(0)) && isUnaryOp(value.at(1)) && value.at(0)==value.at(1) && value.at(0)=='!') return token_t::MULTICHARUNARY;
         }
         if(isNumber(value)) return token_t::NUMBER;
-        //else if(isRoot(value)) return token_t::ROOT;
         else if(isRootArgRight(value)) return token_t::ROOTARGRIGHT;
         else if(isRootArgLeft(value)) return token_t::ROOTARGLEFT;
-        else if(isSinArg(value)) return token_t::SINARG;
         else if(isSubexpr(value)) return token_t::SUBEXPR;
+        else if(isSinArg(value)) return token_t::SINARG;
+        else if(isCosArg(value)) return token_t::COSARG;
+        else if(isTanArg(value)) return token_t::TANARG;
+        else if(isSecArg(value)) return token_t::SECARG;
+        else if(isCscArg(value)) return token_t::CSCARG;
+        else if(isCotArg(value)) return token_t::COTARG;
+        else if(isFloorArg(value)) return token_t::FLOORARG;
+        else if(isCeilArg(value)) return token_t::CEILARG;
+        else if(isRoundArg(value)) return token_t::ROUNDARG;
         else if(value=="x") return token_t::VARIABLE;
         return token_t::INVALID;
     }
@@ -139,7 +158,64 @@ class token
         if(input.find("sin(")!=0) return false;
         for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
         return true;
+    }    
+    ///////////////////////////////////////////////
+    bool isRoundArg(std::string &input)
+    {
+        if(input.find("round(")!=0) return false;
+        for(uint i{6}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
+    }  
+    ///////////////////////////////////////////////
+    bool isSecArg(std::string &input)
+    {
+        if(input.find("sec(")!=0) return false;
+        for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
+    }    
+    ///////////////////////////////////////////////
+    bool isCscArg(std::string &input)
+    {
+        if(input.find("csc(")!=0) return false;
+        for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
+    }    
+    ///////////////////////////////////////////////
+    bool isCotArg(std::string &input)
+    {
+        if(input.find("cot(")!=0) return false;
+        for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
+    }  
+    ///////////////////////////////////////////////
+    bool isFloorArg(std::string &input)
+    {
+        if(input.find("floor(")!=0) return false;
+        for(uint i{6}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
+    }   
+    ///////////////////////////////////////////////
+    bool isCeilArg(std::string &input)
+    {
+        if(input.find("ceil(")!=0) return false;
+        for(uint i{5}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
+    }   
+    ///////////////////////////////////////////////
+    bool isTanArg(std::string &input)
+    {
+        if(input.find("tan(")!=0) return false;
+        for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
+    }    
+    ///////////////////////////////////////////////
+    bool isCosArg(std::string &input)
+    {
+        if(input.find("cos(")!=0) return false;
+        for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
     }
+    ///////////////////////////////////////////////
     bool isRootArgRight(std::string &input)
     {
         if(input.at(0)!=',') return false;
@@ -178,7 +254,10 @@ class token
     static tokenCategory_t determineTokenCategory(token_t &type)
     {
         if(type==token_t::NUMBER || type==token_t::VARIABLE) return tokenCategory_t::NUMBER;
-        else if(type==token_t::SUBEXPR || type==token_t::SINARG || type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT) return tokenCategory_t::SUBEXPR;
+        else if(type==token_t::SUBEXPR || type==token_t::SINARG ||type==token_t::COSARG || type==token_t::TANARG ||
+                type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT ||type==token_t::SECARG ||type==token_t::CSCARG||
+                type==token_t::COTARG || type==token_t::FLOORARG || type==token_t::CEILARG || type==token_t::ROUNDARG) return tokenCategory_t::SUBEXPR;
+        //else if(type==token_t::SINARG ||type==token_t::COSARG) return tokenCategory_t::FUNCTIONARG;
         else return tokenCategory_t::OPERATOR;
     }
     ///////////////////////////////////////////////
@@ -236,6 +315,14 @@ long double evaluateRoot(token denominator, token enumerator, long double xValue
 long double evaluateUnary(token, token, long double xValue);
 long double evaluateBinary(token, token, token, long double xValue);
 long double evaluateSin(token arg, long double xValue); //Evaluate your sins. (sine)
+long double evaluateCos(token arg, long double xValue);
+long double evaluateTan(token arg, long double xValue);
+long double evaluateSec(token arg, long double xValue);
+long double evaluateCsc(token arg, long double xValue);
+long double evaluateCot(token arg, long double xValue);
+long double evaluateFloor(token arg, long double xValue);
+long double evaluateCeil(token arg, long double xValue);
+long double evaluateRound(token arg, long double xValue);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -308,7 +395,7 @@ int main(int argc, char** argv)
             if(options.xMin>=options.xMax) throw std::runtime_error("Invalid range!");
             if(options.xMax-options.xMin>options.xStep*1000) throw std::runtime_error("Too many calculations requested!");
         }
-        else throw std::runtime_error("Included variable but did not specify all of the following: min, max, step/graphing(y or g)");
+        else throw std::runtime_error("Included variable but did not specify all of the following: min, max, step/graphing(g or y (close zoom))");
     }
 
     while(true)
@@ -336,6 +423,20 @@ int main(int argc, char** argv)
             return 0;                       
         }  
         for(int i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--); //Basic garbage removal
+
+        int parenthesesImbalance{};
+        for(uint i{}; i<equation.length(); i++)
+        {
+            if(equation.at(i)=='(') parenthesesImbalance++;
+            else if(equation.at(i)==')') parenthesesImbalance--;
+            if(equation.length()==i+1 && parenthesesImbalance!=0)
+            {
+                std::cerr<<"\nParentheses are not balanced!\n\n";
+                equation.clear();
+            } 
+        }
+        if(parenthesesImbalance!=false) continue;
+        
         if(equation.length()==0) throw std::runtime_error("No valid input");
         std::vector<token> tokens = getTokens(equation);
         if(!passedInAsArg)
@@ -439,6 +540,8 @@ int main(int argc, char** argv)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//This function is ugly.
 void graph(const std::vector<point>&points, const long double yMin, const long double yMax, int yClosestToZeroIndex, int xClosestToZeroIndex, long double yClosestToZero, long double xClosestToZero, const options &options)
 {
     long double length;
@@ -460,7 +563,7 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
     
     uint zoomReduction{1};
 
-    if(yRange>600 || xRange >200)
+    if(height>600 || length >200)
     {
         std::cerr<<"\nThe graph would be too large.\n";
         return;
@@ -486,6 +589,7 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
             
             //Plot point
             else if(std::round((points.at(i).y)/options.xStep) == std::round(height/2-rows)) graphLine<<'+';
+            //else if(points.size()>i+1 && graph.size()>rows-1 && points.at(i).y<points.at(i+1).y && graph.at(rows-1).at(i)=='+') graphLine<<'+'; //Weird line that doesn't interpolate but does something else that is cool?
             
             //Draw X axis
             else if(
@@ -518,30 +622,6 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
             }
         }
     }
-
-    uint plusIndex=length;
-
-    // for(uint rows{static_cast<uint>(height-1)}; rows>0; rows--)
-    // {
-    //     for(uint i{}; i<graph.at(rows).length()&&i<graph.at(rows-1).length()-1; i++)
-    //     {
-    //         if(rows<height-1 && rows>0 && graph.at(rows).at(i)=='+' && graph.at(rows-1).find('+', i)==std::string::npos)
-    //         {
-    //             graph.at(rows-1).at(i)='/';
-    //             continue;
-    //         }
-    //         if(rows<height-1 && rows>0 && graph.at(rows).at(i)=='+' && graph.at(rows+1).find('+', i)==std::string::npos)
-    //         {
-    //             graph.at(rows+1).at(i)='/';
-    //             continue;
-    //         }
-    //         if(rows>1 && i>0 && graph.at(rows-1).at(i-1)=='/' && graph.at(rows-1).find('/', i)==std::string::npos &&graph.at(rows-2).find('+')==std::string::npos)
-    //         {
-    //             graph.at(rows-2).at(i)='|';
-    //             continue;
-    //         }
-    //     }
-    // }
     for(uint i{}; i<graph.size(); i++) std::cout<<graph.at(i);
     return;
 }
@@ -549,7 +629,10 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
 
 void displayHelp()
 {
-    std::cout<<"\nThis calculator allows you to write out an equation using numbers, +, -, *, /, ^ (or **), x, !, !! and the function root(denominator, enumerator)"<<
+    std::cout<<"\nThis calculator allows you to write out an equation using numbers, +, -, *, /, ^ (or **), x, !, !! and the following functions:\n"<<
+    "\troot(denominator, enumerator)\n"<<
+    "\tsin(expression), cos(expression), tan(expression), sec(expression), csc(expression), cot(expression)\n"<<
+    "\tfloor(expression), ceil(expression), round(expression)\n"<<
     "\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2.\n\n"<<
     "Input from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them."<<
     "\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX or graphing (g/y, y for high zoom)\n\n";
@@ -560,7 +643,8 @@ void displayHelp()
 
 bool isValidInput(const char c)
 {
-    return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'||c==','||c=='e'||c=='s'||c=='i'||c=='n';
+    return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'
+                           ||c==','||c=='e'||c=='s'||c=='i'||c=='n'||c=='c'||c=='a' ||c=='l'||c=='f'||c=='u'||c=='d';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -605,20 +689,45 @@ std::vector<token> getTokens(const std::string &input)
             }
         }
         else if (input.at(i)=='x') currentToken='x';
-        else if(input.at(i)=='r'|| input.at(i)=='s' || input.at(i)=='(')
+        else if(input.at(i)=='r'|| input.at(i)=='s' || input.at(i)=='t' || input.at(i)=='c' || input.at(i)=='f' || input.at(i)=='(')
         {
             currentToken.clear();
-            if(input.at(i)=='r') functionCallType=functions::ROOT;
+            if(input.at(i)=='r') functionCallType=functions::ROUND;
             else if(input.at(i)=='s')functionCallType=functions::SIN;
+            else if(input.at(i)=='c')functionCallType=functions::COS;
+            else if(input.at(i)=='t')functionCallType=functions::TAN;
+            else if(input.at(i)=='f')functionCallType=functions::FLOOR;
             else functionCallType=functions::NONE;
 
-            for(; i<input.length() && functionCallType==functions::SIN; i++)
+            //Parse floor()
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::FLOOR; i++)
             {
+                if(input.at(i)=='f' && !inFunctionCall)
+                {
+                    if(input.find("floor(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=6;
+                        nestingLevel++;
+                        currentToken.append("floor(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else throw std::runtime_error("Bad function name or stray characters!");
+                }
                 if(input.at(i)==')') nestingLevel--;
                 else if(input.at(i)=='(') nestingLevel++;
-                currentToken.push_back(input.at(i));
-                if(nestingLevel==0) break;                
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;      
+                }
             }
+            
+            //Parse your sins | sin()
             for(currentToken.clear(); i<input.length() && functionCallType==functions::SIN; i++)
             {
                 if(input.at(i)=='s' && !inFunctionCall)
@@ -633,6 +742,161 @@ std::vector<token> getTokens(const std::string &input)
                         nestingOfFunction=nestingLevel;
                         if(i==input.length()) throw std::runtime_error("Bad function call!");
                     }
+                    else 
+                    {
+                        functionCallType=functions::SEC;
+                        break;
+                    }
+                }
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;      
+                }
+            }
+            //Parse sec()
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::SEC; i++)
+            {
+                if(input.at(i)=='s' && !inFunctionCall)
+                {
+                    if(input.find("sec(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=4;
+                        nestingLevel++;
+                        currentToken.append("sec(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else throw std::runtime_error("Bad function name or stray chararacters!");
+                }
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;      
+                }
+            }
+
+            //Parse cos()
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::COS; i++)
+            {
+                if(input.at(i)=='c' && !inFunctionCall)
+                {
+                    if(input.find("cos(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=4;
+                        nestingLevel++;
+                        currentToken.append("cos(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else 
+                    {
+                        functionCallType=functions::CSC;
+                        break;
+                    }
+                }
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;      
+                }
+            }
+
+            //Parse csc()
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::CSC; i++)
+            {
+                if(input.at(i)=='c' && !inFunctionCall)
+                {
+                    if(input.find("csc(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=4;
+                        nestingLevel++;
+                        currentToken.append("csc(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else 
+                    {
+                        functionCallType=functions::COT;
+                        break;
+                    }
+                }
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;      
+                }
+            }
+
+            //Parse cot()
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::COT; i++)
+            {
+                if(input.at(i)=='c' && !inFunctionCall)
+                {
+                    if(input.find("cot(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=4;
+                        nestingLevel++;
+                        currentToken.append("cot(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else 
+                    {
+                        functionCallType=functions::CEIL;
+                        break;
+                    }
+                }
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;      
+                }
+            }
+
+            //Parse ceil()
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::CEIL; i++)
+            {
+                if(input.at(i)=='c' && !inFunctionCall)
+                {
+                    if(input.find("ceil(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=5;
+                        nestingLevel++;
+                        currentToken.append("ceil(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
                     else throw std::runtime_error("Bad function name or stray characters!");
                 }
                 if(input.at(i)==')') nestingLevel--;
@@ -641,19 +905,71 @@ std::vector<token> getTokens(const std::string &input)
                 else
                 {
                     tokens.push_back(currentToken);
+                    currentToken.clear();
                     break;      
                 }
             }
 
-
-            
-            for(; i<input.length() && functionCallType==functions::NONE; i++)
+            //Parse tan()
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::TAN; i++)
             {
+                if(input.at(i)=='t' && !inFunctionCall)
+                {
+                    if(input.find("tan(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=4;
+                        nestingLevel++;
+                        currentToken.append("tan(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else throw std::runtime_error("Bad function name or stray characters!");
+                }
                 if(input.at(i)==')') nestingLevel--;
                 else if(input.at(i)=='(') nestingLevel++;
-                currentToken.push_back(input.at(i));
-                if(nestingLevel==0) break;
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;      
+                }
+
             }
+            //Parse round()
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::ROUND; i++)
+            {
+                if(input.at(i)=='r' && !inFunctionCall)
+                {
+                    if(input.find("round(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=6;
+                        nestingLevel++;
+                        currentToken.append("round(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else
+                    {
+                        functionCallType=functions::ROOT;
+                        break;
+                    }
+                }
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;      
+                }
+            }
+            //Parse root()
             for(; i<input.length() && functionCallType==functions::ROOT; i++)
             {
                 if(input.at(i)=='r' && !inFunctionCall)
@@ -689,6 +1005,16 @@ std::vector<token> getTokens(const std::string &input)
                 if(input.at(i)==')') nestingLevel--;
                 else if(input.at(i)=='(') nestingLevel++;
             }
+
+            //Parse Subexpression
+            for(; i<input.length() && functionCallType==functions::NONE; i++)
+            {
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                currentToken.push_back(input.at(i));
+                if(nestingLevel==0) break;                
+            }
+
         }
         else for(fixOffByOne=true; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || input.at(i)=='e'); i++)
         {
@@ -704,8 +1030,9 @@ std::vector<token> getTokens(const std::string &input)
             fixOffByOne=false;
             i--;
         }
-        if(currentToken!="root(" && currentToken.find("sin(")!=0) tokens.push_back({currentToken});
+        if(currentToken!="" && currentToken!="root(" && currentToken.find("sin(")!=0 && currentToken.find("cos(")!=0 && currentToken.find("tan(")!=0) tokens.push_back({currentToken});
         currentToken.clear();
+        inFunctionCall=false;
     }
 
     return tokens;
@@ -785,9 +1112,10 @@ long double calculation(std::vector<token> tokens, long double xValue)
         {
             if(pass==SUBEXPRESSIONS)
             {
+                long double evaluatedSubexpr{};
                 if(tokens.at(i).type()==token_t::SUBEXPR)
                 {
-                    long double evaluatedSubexpr=calculation(getTokens(tokens.at(i).value()), xValue);
+                    evaluatedSubexpr=calculation(getTokens(tokens.at(i).value()), xValue);
                     resultAsOSStream << evaluatedSubexpr;
                     tokens.at(i) = token(resultAsOSStream.str());
                     resultAsOSStream.str("");
@@ -798,7 +1126,7 @@ long double calculation(std::vector<token> tokens, long double xValue)
                     long double evaluatedRoot;
                     if(i==0) evaluatedRoot=evaluateRoot(token("0"),tokens.at(i), xValue);
                     else evaluatedRoot=evaluateRoot(tokens.at(i-1),tokens.at(i), xValue);
-                    resultAsOSStream << evaluatedRoot;
+                    resultAsOSStream << evaluatedSubexpr;
                     tokens.at(i) = token(resultAsOSStream.str());
                     resultAsOSStream.str("");
                     resultAsOSStream.clear();
@@ -811,7 +1139,71 @@ long double calculation(std::vector<token> tokens, long double xValue)
                     resultAsOSStream<<evaluatedSin;
                     tokens.at(i)=token(resultAsOSStream.str());
                     resultAsOSStream.str("");
-                    resultAsOSStream.clear();                    
+                    resultAsOSStream.clear();                   
+                }
+                else if(tokens.at(i).type()==token_t::COSARG)
+                {
+                    evaluatedSubexpr=evaluateCos(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();                   
+                }
+                else if(tokens.at(i).type()==token_t::TANARG)
+                {
+                    evaluatedSubexpr=evaluateTan(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();                  
+                }
+                else if(tokens.at(i).type()==token_t::SECARG)
+                {
+                    evaluatedSubexpr=evaluateSec(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();                   
+                }
+                else if(tokens.at(i).type()==token_t::CSCARG)
+                {
+                    evaluatedSubexpr=evaluateCsc(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();                 
+                }
+                else if(tokens.at(i).type()==token_t::COTARG)
+                {
+                    evaluatedSubexpr=evaluateCot(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();     
+                }
+                else if(tokens.at(i).type()==token_t::FLOORARG)
+                {
+                    evaluatedSubexpr=evaluateFloor(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();       
+                }
+                else if(tokens.at(i).type()==token_t::CEILARG)
+                {
+                    evaluatedSubexpr=evaluateCeil(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();     
+                }
+                else if(tokens.at(i).type()==token_t::ROUNDARG)
+                {
+                    evaluatedSubexpr=evaluateRound(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();     
                 }
                 else continue;
             }
@@ -920,6 +1312,48 @@ long double calculation(std::vector<token> tokens, long double xValue)
 long double evaluateSin(token arg, long double xValue)
 {
     return std::sin(calculation(getTokens(arg.value()), xValue));
+}
+
+
+long double evaluateTan(token arg, long double xValue)
+{
+    return std::tan(calculation(getTokens(arg.value()), xValue));
+}
+
+
+long double evaluateCos(token arg, long double xValue)
+{
+    return std::cos(calculation(getTokens(arg.value()), xValue));
+}
+
+long double evaluateSec(token arg, long double xValue)
+{
+    return 1/std::cos(calculation(getTokens(arg.value()), xValue));
+}
+
+long double evaluateCsc(token arg, long double xValue)
+{
+    return 1/std::sin(calculation(getTokens(arg.value()), xValue));
+}
+
+long double evaluateCot(token arg, long double xValue)
+{
+    return 1/std::tan(calculation(getTokens(arg.value()), xValue));
+}
+
+long double evaluateFloor(token arg, long double xValue)
+{
+    return std::floor(calculation(getTokens(arg.value()), xValue));
+}
+
+long double evaluateCeil(token arg, long double xValue)
+{
+    return std::ceil(calculation(getTokens(arg.value()), xValue));
+}
+
+long double evaluateRound(token arg, long double xValue)
+{
+    return std::round(calculation(getTokens(arg.value()), xValue));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
