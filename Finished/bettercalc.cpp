@@ -1473,7 +1473,7 @@ long double evaluateRoot(token denominatorArg, token enumeratorArg, long double 
     //if(denominator==0) return NAN;
     if(denominator==static_cast<int>(denominator) && static_cast<int>(denominator)%2==0 && enumerator<0) return NAN;
 
-    if(enumerator<0) return -std::pow(std::abs(enumerator),1/denominator);
+    if(enumerator<0) return -std::pow(-enumerator,1/denominator);
     else return std::pow(enumerator, 1/denominator);
 }
 
@@ -1498,27 +1498,19 @@ long double evaluateUnary(token numberString, token operation, long double xValu
     long double number=numberString.number(xValue);
     long double result{1};
     if(operation.value()=="-") return number*-1;
-    if(number<0) throw std::runtime_error("Cannot evaluate factorial of negative number!");
     if(operation.value()=="!!")
         for(int i{static_cast<int>(std::round(number))%2+2}; i<static_cast<int>(std::round(number))+1; i+=2)
         {
-            if(number>=300.5) throw std::runtime_error("Input for double factorial too large!");
             uint numberAsInt{static_cast<uint>(std::round(number))};
-            if(numberAsInt>300) throw std::runtime_error("Input for double factorial too large!");
             if(numberAsInt==0) return 1.0;
             if(numberAsInt<=3) return numberAsInt;
             result*=i;
         }
     else if(operation.value()=="!")
-        for(int i{2}; i<static_cast<int>(std::round(number))+1; i++)
         {
-            if(number>=170.5) throw std::runtime_error("Input for factorial too large!");
-            uint numberAsInt{static_cast<uint>(std::round(number))};
-            if(numberAsInt>170) throw std::runtime_error("Input for factorial too large!");
-            if(numberAsInt==0) return 1.0;
-            if(numberAsInt<=2) return numberAsInt;
-            result*=i;
+            result=std::tgamma(number+1);
         }
+    if(operation.value()=="!!" && number<0) return NAN;
     return result;
 }
 
