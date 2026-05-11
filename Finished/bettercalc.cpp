@@ -298,8 +298,8 @@ class token
         if(type==token_t::NUMBER || type==token_t::VARIABLE) return tokenCategory_t::NUMBER;
         else if(type==token_t::SUBEXPR || type==token_t::SINARG ||type==token_t::COSARG || type==token_t::TANARG ||
                 type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT ||type==token_t::SECARG ||type==token_t::CSCARG||
-                type==token_t::COTARG || type==token_t::FLOORARG || type==token_t::CEILARG || type==token_t::ROUNDARG || type==token_t::ABSARG) return tokenCategory_t::SUBEXPR;
-        //else if(type==token_t::SINARG ||type==token_t::COSARG) return tokenCategory_t::FUNCTIONARG;
+                type==token_t::COTARG || type==token_t::FLOORARG || type==token_t::CEILARG || type==token_t::ROUNDARG || type==token_t::ABSARG||
+                type==token_t::ASINARG || type==token_t::ACOSARG || type==token_t::ATANARG) return tokenCategory_t::SUBEXPR;
         else return tokenCategory_t::OPERATOR;
     }
     ///////////////////////////////////////////////
@@ -680,7 +680,7 @@ void displayHelp()
 {
     std::cout<<"\nThis calculator allows you to write out an equation using numbers, +, -, *, /, ^ (or **), x, !, !!, |expression|, (expression) and the following functions:\n"<<
     "\troot(denominator, enumerator)\n"<<
-    "\tsin(expression), cos(expression), tan(expression), sec(expression), csc(expression), cot(expression)\n"<<
+    "\tsin(expression), cos(expression), tan(expression), sec(expression), csc(expression), cot(expression), asin(expression), acos(expression), atan(expression)\n"<<
     "\tfloor(expression), ceil(expression), round(expression), abs(expression)\n"<<
     "\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2.\n\n"<<
     "Input from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them."<<
