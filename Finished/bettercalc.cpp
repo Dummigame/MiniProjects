@@ -17,6 +17,9 @@ enum class functions
     NONE,
     ABS, //Somehow, I managed to break the Krunner calculator widget with this. ||3|-2| is not 6 bucko
     ABSASFUN,
+    ASIN,
+    ACOS,
+    ATAN,
     ROOT,
     SIN,
     COS,
@@ -64,6 +67,9 @@ enum class token_t
     SECARG,
     CSCARG,
     COTARG,
+    ASINARG,
+    ACOSARG,
+    ATANARG,
     FLOORARG,
     CEILARG,
     ROUNDARG,
@@ -135,8 +141,11 @@ class token
         else if(isSubexpr(value)) return token_t::SUBEXPR;
         else if(isAbsArg(value)) return token_t::ABSARG;
         else if(isSinArg(value)) return token_t::SINARG;
+        else if(isAsinArg(value)) return token_t::ASINARG;
         else if(isCosArg(value)) return token_t::COSARG;
+        else if(isAcosArg(value)) return token_t::ACOSARG;
         else if(isTanArg(value)) return token_t::TANARG;
+        else if(isAtanArg(value)) return token_t::ATANARG;
         else if(isSecArg(value)) return token_t::SECARG;
         else if(isCscArg(value)) return token_t::CSCARG;
         else if(isCotArg(value)) return token_t::COTARG;
@@ -163,6 +172,27 @@ class token
         for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
         return true;
     }    
+    ///////////////////////////////////////////////
+    bool isAsinArg(std::string &input)
+    {
+        if(input.find("asin(")!=0) return false;
+        for(uint i{5}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
+    }
+    ///////////////////////////////////////////////
+    bool isAcosArg(std::string &input)
+    {
+        if(input.find("acos(")!=0) return false;
+        for(uint i{5}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
+    }
+    ///////////////////////////////////////////////
+    bool isAtanArg(std::string &input)
+    {
+        if(input.find("atan(")!=0) return false;
+        for(uint i{5}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        return true;
+    }
     ///////////////////////////////////////////////
     bool isAbsArg(std::string &input)
     {
@@ -336,6 +366,9 @@ long double evaluateFloor(token arg, long double xValue);
 long double evaluateCeil(token arg, long double xValue);
 long double evaluateRound(token arg, long double xValue);
 long double evaluateAbs(token arg, long double xValue);
+long double evaluateAsin(token arg, long double xValue);
+long double evaluateAcos(token arg, long double xValue);
+long double evaluateAtan(token arg, long double xValue);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -735,7 +768,100 @@ std::vector<token> getTokens(const std::string &input)
                         nestingOfFunction=nestingLevel;
                         if(i==input.length()) throw std::runtime_error("Bad function call!");
                     }
-                    else throw std::runtime_error("Bad function name or stray characters!");
+                    else                    
+                    {
+                        functionCallType=functions::ASIN;
+                        break;
+                    }
+                }
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;      
+                }
+            }
+            //Parse asin()
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::ASIN; i++)
+            {
+                if(input.at(i)=='a' && !inFunctionCall)
+                {
+                    if(input.find("asin(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=5;
+                        nestingLevel++;
+                        currentToken.append("asin(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else                    
+                    {
+                        functionCallType=functions::ACOS;
+                        break;
+                    }
+                }
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;      
+                }
+            }
+            //Parse asin()
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::ACOS; i++)
+            {
+                if(input.at(i)=='a' && !inFunctionCall)
+                {
+                    if(input.find("acos(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=5;
+                        nestingLevel++;
+                        currentToken.append("acos(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else                    
+                    {
+                        functionCallType=functions::ATAN;
+                        break;
+                    }
+                }
+                if(input.at(i)==')') nestingLevel--;
+                else if(input.at(i)=='(') nestingLevel++;
+                if(nestingLevel>=nestingOfFunction) currentToken.push_back(input.at(i));
+                else
+                {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                    break;      
+                }
+            }
+            //Parse atan()
+            for(currentToken.clear(); i<input.length() && functionCallType==functions::ATAN; i++)
+            {
+                if(input.at(i)=='a' && !inFunctionCall)
+                {
+                    if(input.find("atan(", i)==i)
+                    {
+                        startOfFunction=i;
+                        i+=5;
+                        nestingLevel++;
+                        currentToken.append("atan(");
+                        inFunctionCall=true;
+                        nestingOfFunction=nestingLevel;
+                        if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    }
+                    else std::runtime_error("Bad function name or stray characters!");
                 }
                 if(input.at(i)==')') nestingLevel--;
                 else if(input.at(i)=='(') nestingLevel++;
@@ -1223,8 +1349,32 @@ long double calculation(std::vector<token> tokens, long double xValue)
                 }
                 else if(tokens.at(i).type()==token_t::SINARG)
                 {
-                    long double evaluatedSin=evaluateSin(tokens.at(i), xValue);
-                    resultAsOSStream<<evaluatedSin;
+                    evaluatedSubexpr=evaluateSin(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();                   
+                }
+                else if(tokens.at(i).type()==token_t::ASINARG)
+                {
+                    evaluatedSubexpr=evaluateAsin(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();                   
+                }
+                else if(tokens.at(i).type()==token_t::ACOSARG)
+                {
+                    evaluatedSubexpr=evaluateAcos(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
+                    tokens.at(i)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();                   
+                }
+                else if(tokens.at(i).type()==token_t::ATANARG)
+                {
+                    evaluatedSubexpr=evaluateAtan(tokens.at(i), xValue);
+                    resultAsOSStream<<evaluatedSubexpr;
                     tokens.at(i)=token(resultAsOSStream.str());
                     resultAsOSStream.str("");
                     resultAsOSStream.clear();                   
@@ -1301,6 +1451,7 @@ long double calculation(std::vector<token> tokens, long double xValue)
                     resultAsOSStream.str("");
                     resultAsOSStream.clear();     
                 }
+
                 else continue;
             }
             else if(pass==UNARYOPS)
@@ -1455,6 +1606,21 @@ long double evaluateRound(token arg, long double xValue)
 long double evaluateAbs(token arg, long double xValue)
 {
     return std::abs(calculation(getTokens(arg.value()), xValue));
+}
+
+long double evaluateAsin(token arg, long double xValue)
+{
+    return std::asin(calculation(getTokens(arg.value()), xValue));
+}
+
+long double evaluateAcos(token arg, long double xValue)
+{
+    return std::acos(calculation(getTokens(arg.value()), xValue));
+}
+
+long double evaluateAtan(token arg, long double xValue)
+{
+    return std::atan(calculation(getTokens(arg.value()), xValue));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
