@@ -1,3 +1,4 @@
+#include <cctype>
 #include <cfloat>
 #include <cstdint>
 #include <cstdlib>
@@ -1033,10 +1034,10 @@ std::vector<token> getTokens(const std::string &input)
                 if(nestingLevel==0 || i==input.length()-1) break;                
             }
         }
-        else for(; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || (input.at(i)=='e' && currentToken!="e")); i++)
+        else for(; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || (i>0 && std::isdigit(input.at(i-1)) && input.at(i)=='e' && currentToken!="e" && i<input.length()-2 && (input.at(i+1)=='+' || input.at(i+1)=='-') && std::isdigit(input.at(i+2)))); i++)
         {
             fixOffByOne=true;
-            if(i+1<input.length() && input.at(i)=='e' && (input.at(i+1)=='+' || input.at(i+1)=='-'))
+            if(i+1<input.length() && (input.at(i)=='e' && (input.at(i+1)=='+' || input.at(i+1)=='-')))
             {
                 currentToken.push_back(input.at(i));
                 i++;
