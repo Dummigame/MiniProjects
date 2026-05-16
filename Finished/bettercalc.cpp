@@ -15,7 +15,7 @@ bool isValidInput(const char);
 enum class functions
 {
     NONE,
-    ABS, //Somehow, I managed to break the Krunner calculator widget with this. ||3|-2| is not 6 bucko
+    ABS,
     ABSASFUN,
     ASIN,
     ACOS,
@@ -39,8 +39,6 @@ enum drawPos
     ZERO,
     LEFT,
     RIGHT,
-    TOP,
-    BOTTOM
 };
 
 enum pass
@@ -100,11 +98,11 @@ struct point
 {
     long double x{};
     long double y{};
-    point(long double x, long double y)
+    point(long double inX, long double inY)
     {
-        this->x=x;
-        if(y==INFINITY || y==-INFINITY) this->y=NAN;
-        else this->y=y;
+        this->x=inX;
+        if(inY==INFINITY || inY==-INFINITY) this->y=NAN;
+        else this->y=inY;
     }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -434,31 +432,30 @@ class token
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 std::vector<token> getTokens(const std::string&);
-token getFunctionToken(const std::string& input, functions functionCallType, uint &i);
+token getFunctionToken(const std::string& input, const functions functionCallType, uint &i);
 void getVariableArgs(std::vector<token>&, options&);
-void graph(const std::vector<point>&points, const long double yMin, const long double yMax, int yClosestToZeroIndex, int xClosestToZeroIndex, long double yClosestToZero, long double xClosestToZero, const options &options);
-long double calculation(std::vector<token>, long double xValue);
-long double evaluateRoot(token denominator, token enumerator, long double xValue);
-long double evaluateLog(token denominatorArg, token enumeratorArg, long double xValue);
-long double evaluateUnary(token, token, long double xValue);
-long double evaluateBinary(token, token, token, long double xValue);
-long double evaluateLn(token arg, long double xValue);
-long double evaluateSin(token arg, long double xValue); //Evaluate your sins. (sine)
-long double evaluateCos(token arg, long double xValue);
-long double evaluateTan(token arg, long double xValue);
-long double evaluateSec(token arg, long double xValue);
-long double evaluateCsc(token arg, long double xValue);
-long double evaluateCot(token arg, long double xValue);
-long double evaluateFloor(token arg, long double xValue);
-long double evaluateCeil(token arg, long double xValue);
-long double evaluateRound(token arg, long double xValue);
-long double evaluateAbs(token arg, long double xValue);
-long double evaluateAsin(token arg, long double xValue);
-long double evaluateAcos(token arg, long double xValue);
-long double evaluateAtan(token arg, long double xValue);
+void graph(const std::vector<point>&points, const long double yMin, const long double yMax, const uint xClosestToZeroIndex, const options &options);
+long double calculation(std::vector<token>, const long double xValue);
 
+long double evaluateRoot(token denominator, token &enumerator, const long double xValue);
+long double evaluateLog(token denominatorArg, token &enumeratorArg, const long double xValue);
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+long double evaluateUnary(token&, token&, const long double xValue);
+long double evaluateBinary(token&, token&, token&, const long double xValue);
+long double evaluateLn(token &arg, const long double xValue);
+long double evaluateSin(token &arg, const long double xValue); //Evaluate your sins. (sine)
+long double evaluateCos(token &arg, const long double xValue);
+long double evaluateTan(token &arg, const long double xValue);
+long double evaluateSec(token &arg, const long double xValue);
+long double evaluateCsc(token &arg, const long double xValue);
+long double evaluateCot(token &arg, const long double xValue);
+long double evaluateFloor(token &arg, const long double xValue);
+long double evaluateCeil(token &arg, const long double xValue);
+long double evaluateRound(token &arg, const long double xValue);
+long double evaluateAbs(token &arg, const long double xValue);
+long double evaluateAsin(token &arg, const long double xValue);
+long double evaluateAcos(token &arg, const long double xValue);
+long double evaluateAtan(token &arg, const long double xValue);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -501,7 +498,12 @@ int main(int argc, char** argv)
             std::cout<<"\nfish.\n";         
             return 0;                       
         }  
-        for(int i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--);
+        if(equation.find("nine plus ten")!=std::string::npos)
+        {                                   
+            std::cout<<"\ntwenty one.\n";         
+            return 0;                       
+        }  
+        for(uint i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--);
         if(equation!="")
         {
             std::cout<<"\nPassed " <<equation<< " as input from command line\n";
@@ -556,7 +558,12 @@ int main(int argc, char** argv)
             std::cout<<"\nfish.\n";         
             return 0;                       
         }  
-        for(int i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--); //Basic garbage removal
+        if(equation.find("nine plus ten")!=std::string::npos)
+        {                                   
+            std::cout<<"\ntwenty one.\n";         
+            return 0;                       
+        }  
+        for(uint i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--); //Basic garbage removal
 
         int parenthesesImbalance{};
         uint absValueLineCount{};
@@ -634,8 +641,7 @@ int main(int argc, char** argv)
             long double smallestY{DBL_MAX};
             long double yClosestToZero{DBL_MAX};
             long double xClosestToZero{DBL_MAX};
-            int yClosestToZeroIndex{INT32_MAX};
-            int xClosestToZeroIndex{INT32_MAX};
+            uint xClosestToZeroIndex{INT32_MAX};
             std::vector<point> points;
             uint i{};
             for(long double xValue=options.xMin; xValue<=options.xMax; xValue+=options.xStep)
@@ -646,7 +652,6 @@ int main(int argc, char** argv)
                 if(std::abs(points.at(i).y)<yClosestToZero)
                 {
                     yClosestToZero=std::abs(points.at(i).y);
-                    yClosestToZeroIndex=i;
                 }
                 if(std::abs(points.at(i).x)<xClosestToZero) 
                 {
@@ -657,7 +662,7 @@ int main(int argc, char** argv)
                 if(points.at(i).y>largestY) largestY=points.at(i).y;
                 i++;
             }
-            graph(points,smallestY,largestY,yClosestToZeroIndex,xClosestToZeroIndex,yClosestToZero,xClosestToZero,options);        
+            graph(points,smallestY,largestY,xClosestToZeroIndex,options);        
         }
         std::cout<<"\n\n";
         equation.clear();
@@ -676,29 +681,16 @@ int main(int argc, char** argv)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 //This function is ugly.
-void graph(const std::vector<point>&points, const long double yMin, const long double yMax, int yClosestToZeroIndex, int xClosestToZeroIndex, long double yClosestToZero, long double xClosestToZero, const options &options)
+void graph(const std::vector<point>&points, const long double yMin, const long double yMax, const uint xClosestToZeroIndex, const options &options)
 {
-    long double length;
-    long double height;
-
-    // if(std::abs(yMax)+std::abs(yMin)<=0)
-    // {
-    //     std::cout<<"\nNo valid graph can be drawn as the height is 0.\n";
-    //     return;
-    // }
-
     long double xRange=points.size();
     long double yRange=(std::abs(yMax)+std::abs(yMin))/options.xStep+std::abs(yMin*5); //Absurd line
 
 
-    height=yRange+(1/(yRange+0.5))*700; //Trust
+    long double height=yRange+(1/(yRange+0.5))*700; //Trust
     if(height>yRange*3) height=yRange+15;
-    length=xRange;
-    
-    uint zoomReduction{1};
+    const long double length=xRange;
 
     if(height>600 || length >200)
     {
@@ -709,10 +701,6 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
     drawPos yAxisPos=ZERO;
     if(options.xMin>=0) yAxisPos=LEFT;
     else if(options.xMax<=0) yAxisPos=RIGHT;
-
-    drawPos xAxisPos=ZERO;
-    // if(yMin>=0) xAxisPos=BOTTOM;
-    // else if(yMax<=0) xAxisPos=TOP;
 
 
     std::vector<std::string> graph;
@@ -726,18 +714,11 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
             
             //Plot point
             else if(std::round((points.at(i).y)/options.xStep) == std::round(height/2-rows)) graphLine<<'+';
-            //else if(points.size()>i+1 && graph.size()>rows-1 && points.at(i).y<points.at(i+1).y && graph.at(rows-1).at(i)=='+') graphLine<<'+'; //Weird line that doesn't interpolate but does something else that is cool?
-            
+           
             //Draw X axis
-            else if(
-            (xAxisPos==BOTTOM && rows==height-1 && i<length-1)||
-            (xAxisPos==TOP && rows==0 && i<length-1)||
-            (std::round(height/2)==rows && xAxisPos==ZERO && i<length-1)) graphLine<<'-';
+            else if((std::round(height/2)==rows && i<length-1)) graphLine<<'-';
 
-            else if(
-            (xAxisPos==BOTTOM && rows==height-1 && i==length-1)||
-            (xAxisPos==TOP && rows==0 && i==length-1)||
-            (std::round(height/2)==rows && xAxisPos==ZERO && i==length-1)) graphLine<<"-  >"; //Man...
+            else if((std::round(height/2)==rows && i==length-1)) graphLine<<"-  >";
 
             //Draw Y axis
             else if(i==0 && rows==0 && yAxisPos==LEFT) graphLine<<'^';
@@ -754,7 +735,7 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
             if(i==length-1)
             {
                 graphLine<<'\n';
-                graph.push_back(graphLine.str());
+                graph.emplace_back(graphLine.str());
                 graphLine.str("");
             }
         }
@@ -792,11 +773,10 @@ bool isValidInput(const char c)
 
 std::vector<token> getTokens(const std::string &input)
 {
-    //for(int i{}; i<input.length(); i++) if(!(isValidInput(input.at(i)))) throw std::runtime_error("Invalid input"); //Basic garbage removal
     int nestingLevel{};
     static bool memed{};
     int absNestingLevel{};
-    uint nestingOfFunction{};
+    int nestingOfFunction{};
     uint startOfFunction{};
     uint endOfFirstArg{};
     std::vector<token> tokens{};
@@ -827,7 +807,6 @@ std::vector<token> getTokens(const std::string &input)
             currentToken='i'; //:troll:
             if(!memed) std::cout<<"\nWhat, did you think this calculator can use complex numbers?\n";
             memed=true;
-
         }
         else if (input.at(i)=='!')
         {
@@ -883,7 +862,7 @@ std::vector<token> getTokens(const std::string &input)
                     }
                     inFunctionCall=true;
                     nestingOfFunction=nestingLevel;
-                    if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    if(i==input.length()-1) throw std::runtime_error("Bad absolute value... parentheses? Things? Lines?");
                 }
                 if(input.at(i)==')')
                 {
@@ -899,7 +878,7 @@ std::vector<token> getTokens(const std::string &input)
                 if(i>startOfFunction+1 && nestingLevel<=0 && absNestingLevel==0 && inParentheses==false && input.at(i)=='|')
                 {
                     currentToken.push_back(input.at(i));
-                    tokens.push_back(currentToken);
+                    tokens.emplace_back(currentToken);
                     currentToken.clear();
                     break;
                 }
@@ -969,7 +948,7 @@ std::vector<token> getTokens(const std::string &input)
                 if(input.find("ln(", i)!=i) functionCallType=functions::LOG;
             }
            
-            if(functionCallType!=functions::ABS && functionCallType!=functions::ROOT && functionCallType!=functions::LOG &&  functionCallType!=functions::NONE) tokens.push_back(getFunctionToken(input, functionCallType, i));
+            if(functionCallType!=functions::ABS && functionCallType!=functions::ROOT && functionCallType!=functions::LOG && functionCallType!=functions::NONE) tokens.emplace_back(getFunctionToken(input, functionCallType, i));
 
             //Parse root()
             for(; i<input.length() && functionCallType==functions::ROOT; i++)
@@ -992,16 +971,16 @@ std::vector<token> getTokens(const std::string &input)
                 {
                     rootHasTwoArgs=true;
                     endOfFirstArg=i;
-                    tokens.push_back(input.substr(startOfFunction,i-startOfFunction));
+                    tokens.emplace_back(input.substr(startOfFunction,i-startOfFunction));
                 }
-                else if(inFunctionCall && (nestingLevel<=nestingOfFunction && input.at(i)==')'||i==input.length()-1) && rootHasTwoArgs==false)
+                else if(inFunctionCall && ((nestingLevel<=nestingOfFunction && input.at(i)==')')||i==input.length()-1) && rootHasTwoArgs==false)
                 {
-                    tokens.push_back("root,"+input.substr(startOfFunction+5/*char after root(<-*/,i-startOfFunction-4));
+                    tokens.emplace_back("root,"+input.substr(startOfFunction+5/*char after root(<-*/,i-startOfFunction-4));
                     break;
                 }
-                else if(inFunctionCall && (nestingLevel<=nestingOfFunction && input.at(i)==')'||i==input.length()-1) && rootHasTwoArgs==true)
+                else if(inFunctionCall && ((nestingLevel<=nestingOfFunction && input.at(i)==')')||i==input.length()-1) && rootHasTwoArgs==true)
                 {
-                    tokens.push_back("root"+input.substr(endOfFirstArg,i-endOfFirstArg+1));
+                    tokens.emplace_back("root"+input.substr(endOfFirstArg,i-endOfFirstArg+1));
                     break;
                 }
                 if(input.at(i)==')') nestingLevel--;
@@ -1029,16 +1008,16 @@ std::vector<token> getTokens(const std::string &input)
                 {
                     logHasTwoArgs=true;
                     endOfFirstArg=i;
-                    tokens.push_back(input.substr(startOfFunction,i-startOfFunction));
+                    tokens.emplace_back(input.substr(startOfFunction,i-startOfFunction));
                 }
-                else if(inFunctionCall && (nestingLevel<=nestingOfFunction && input.at(i)==')'||i==input.length()-1) && logHasTwoArgs==false)
+                else if(inFunctionCall && ((nestingLevel<=nestingOfFunction && input.at(i)==')')||i==input.length()-1) && logHasTwoArgs==false)
                 {
-                    tokens.push_back("log,"+input.substr(startOfFunction+4/*char after log(<-*/,i-startOfFunction-3));
+                    tokens.emplace_back("log,"+input.substr(startOfFunction+4/*char after log(<-*/,i-startOfFunction-3));
                     break;
                 }
-                else if(inFunctionCall && (nestingLevel<=nestingOfFunction && input.at(i)==')'||i==input.length()-1) && logHasTwoArgs==true)
+                else if(inFunctionCall && ((nestingLevel<=nestingOfFunction && input.at(i)==')')||i==input.length()-1) && logHasTwoArgs==true)
                 {
-                    tokens.push_back("log"+input.substr(endOfFirstArg,i-endOfFirstArg+1));
+                    tokens.emplace_back("log"+input.substr(endOfFirstArg,i-endOfFirstArg+1));
                     break;
                 }
                 if(input.at(i)==')') nestingLevel--;
@@ -1069,7 +1048,7 @@ std::vector<token> getTokens(const std::string &input)
             fixOffByOne=false;
             i--;
         }
-        if(currentToken!="" && currentToken!="root(" && currentToken.find("sin(")!=0 && currentToken.find("cos(")!=0 && currentToken.find("tan(")!=0 && currentToken.find("log(")!=0) tokens.push_back({currentToken});
+        if(currentToken!="" && currentToken!="root(" && currentToken.find("sin(")!=0 && currentToken.find("cos(")!=0 && currentToken.find("tan(")!=0 && currentToken.find("log(")!=0) tokens.emplace_back(currentToken);
         currentToken.clear();
         inFunctionCall=false;
         rootHasTwoArgs=false;
@@ -1081,7 +1060,7 @@ std::vector<token> getTokens(const std::string &input)
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-token getFunctionToken(const std::string& input, functions functionCallType, uint &i)
+token getFunctionToken(const std::string& input, const functions functionCallType, uint &i)
 {
     std::string currentToken;
     //in: functionName(expr)
@@ -1131,7 +1110,6 @@ token getFunctionToken(const std::string& input, functions functionCallType, uin
 
 void getVariableArgs(std::vector<token> &tokens, options &options)
 {
-    bool obtainedArgs{};
     if(tokens.size()==0) return;
     for(uint i{}; i<tokens.size(); i++)
     {
@@ -1178,7 +1156,7 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double calculation(std::vector<token> tokens, long double xValue)
+long double calculation(std::vector<token> tokens, const long double xValue)
 {
     std::ostringstream resultAsOSStream;
     resultAsOSStream.precision(LDBL_DIG);
@@ -1187,18 +1165,18 @@ long double calculation(std::vector<token> tokens, long double xValue)
     for(uint i{1}; i<tokens.size(); i++)
     {
         if((tokens.at(i).type()==token_t::VARIABLE||tokens.at(i).type()==token_t::CONSTANT) && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
-            tokens.insert(tokens.begin()+i++, token("*"));
+            tokens.emplace(tokens.begin()+i++, token("*"));
         if(tokens.at(i).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR&&tokens.at(i-1).type()!=token_t::ROOTARGLEFT&&tokens.at(i-1).type()!=token_t::LOGARGLEFT)
-            tokens.insert(tokens.begin()+i++, token("*"));
+            tokens.emplace(tokens.begin()+i++, token("*"));
         if(tokens.at(i).value()=="-" && tokens.at(i-1).type()!=token_t::BINARYOP && tokens.at(i-1).type()!=token_t::MULTICHARBINARY)
-            tokens.insert(tokens.begin()+i++, token("+"));
+            tokens.emplace(tokens.begin()+i++, token("+"));
         if(tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR&&tokens.at(i).type()!=token_t::ROOTARGRIGHT&&tokens.at(i).type()!=token_t::LOGARGRIGHT)
-            tokens.insert(tokens.begin()+i++, token("*"));
+            tokens.emplace(tokens.begin()+i++, token("*"));
     }
 
-    for(uint pass{}; pass<=ADDITION; pass++)
+    for(long unsigned int pass{}; pass<=ADDITION; pass++)
     {
-        for(int i{}; i<tokens.size(); i++)
+        for(uint i{}; i<tokens.size(); i++)
         {
             if(pass==SUBEXPRESSIONS)
             {
@@ -1354,79 +1332,79 @@ long double calculation(std::vector<token> tokens, long double xValue)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double evaluateLn(token arg, long double xValue)
+long double evaluateLn(token &arg, const long double xValue)
 {
     return std::log(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateSin(token arg, long double xValue)
+long double evaluateSin(token &arg, const long double xValue)
 {
     return std::sin(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateCos(token arg, long double xValue)
+long double evaluateCos(token &arg, const long double xValue)
 {
     return std::cos(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateTan(token arg, long double xValue)
+long double evaluateTan(token &arg, const long double xValue)
 {
     return std::tan(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateCsc(token arg, long double xValue)
+long double evaluateCsc(token &arg, const long double xValue)
 {
     return 1/std::sin(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateSec(token arg, long double xValue)
+long double evaluateSec(token &arg, const long double xValue)
 {
     return 1/std::cos(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateCot(token arg, long double xValue)
+long double evaluateCot(token &arg, const long double xValue)
 {
     return 1/std::tan(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateFloor(token arg, long double xValue)
+long double evaluateFloor(token &arg, const long double xValue)
 {
     return std::floor(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateCeil(token arg, long double xValue)
+long double evaluateCeil(token &arg, const long double xValue)
 {
     return std::ceil(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateRound(token arg, long double xValue)
+long double evaluateRound(token &arg, const long double xValue)
 {
     return std::round(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateAbs(token arg, long double xValue)
+long double evaluateAbs(token &arg, const long double xValue)
 {
     return std::abs(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateAsin(token arg, long double xValue)
+long double evaluateAsin(token &arg, const long double xValue)
 {
     return std::asin(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateAcos(token arg, long double xValue)
+long double evaluateAcos(token &arg, const long double xValue)
 {
     return std::acos(calculation(getTokens(arg.value()), xValue));
 }
 
-long double evaluateAtan(token arg, long double xValue)
+long double evaluateAtan(token &arg, const long double xValue)
 {
     return std::atan(calculation(getTokens(arg.value()), xValue));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double evaluateRoot(token denominatorArg, token enumeratorArg, long double xValue)
+long double evaluateRoot(token denominatorArg, token &enumeratorArg, const long double xValue)
 {
     long double denominator{};
 
@@ -1446,7 +1424,7 @@ long double evaluateRoot(token denominatorArg, token enumeratorArg, long double 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double evaluateLog(token denominatorArg, token enumeratorArg, long double xValue)
+long double evaluateLog(token denominatorArg, token &enumeratorArg, const long double xValue)
 {
     long double denominator{};
 
@@ -1458,12 +1436,12 @@ long double evaluateLog(token denominatorArg, token enumeratorArg, long double x
     long double enumerator=calculation(getTokens(enumeratorArg.value()), xValue);
 
     //if(denominator==0) return NAN;
-    return std::log(enumerator)/log(denominator);
+    return std::log(enumerator)/std::log(denominator);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double evaluateBinary(token numberStringLeft, token operation, token numberStringRight, long double xValue)
+long double evaluateBinary(token &numberStringLeft, token &operation, token &numberStringRight, const long double xValue)
 {
     long double numberLeft{numberStringLeft.number(xValue)};
     long double numberRight{numberStringRight.number(xValue)};
@@ -1477,7 +1455,7 @@ long double evaluateBinary(token numberStringLeft, token operation, token number
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double evaluateUnary(token numberString, token operation, long double xValue)
+long double evaluateUnary(token &numberString, token &operation, const long double xValue)
 {
     long double number=numberString.number(xValue);
     long double result{1};
@@ -1533,7 +1511,7 @@ bool isNumber(const std::string &input)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool isNumberPart(char input)
+bool isNumberPart(const char input)
 {
     return (input>='0' && input<='9') || input=='.' || input=='e';
 }
@@ -1542,12 +1520,12 @@ bool isNumberPart(char input)
 
 /*
 
-3+(15/root(2+4,10-2))-25x
+3+(pi/root(2+4,10-2))-25x
 
 3: Number                                               -> NUMBER
 +: BinaryOp                                             -> OPERATOR
-(15/root(2+4,10-2)): SubExpr                            -> SUBEXPR
-    15: Number                                          -> NUMBER
+(pi/root(2+4,10-2)): SubExpr                            -> SUBEXPR
+    pi: Constant (Will later be replaced by Number)     -> CONSTANT
     /: BinaryOp                                         -> OPERATOR
     root(2+4,10-2) 
         2+4: RootArgLeft                                -> SUBEXPR
@@ -1564,9 +1542,9 @@ x:Variable (Will later be replaced by Number)           -> NUMBER
 
 */
 /*
-    Grammar:
+    Grammar: (Subexpr could also be variable or constant)
     NUMBER||SUBEXPR then SUBEXPR||UNARYOP
     NUMBER||SUBEXPR then BINARYOP then NUMBER||SUBEXPR
-
-    SUBEXPR then ANY (SUBEXPR, OPERATOR, NUMBER)
+    ANY then SUBEXPR
+    SUBEXPR then ANY
 */   
