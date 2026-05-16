@@ -141,7 +141,8 @@ class token
             || input=="i" 
             || input=="ppm"
             || input=="ppb"
-            || input=="ppt";
+            || input=="ppt"
+            || input=="prc";
     }
 
     static bool isBinaryOp(const char c)
@@ -263,6 +264,7 @@ class token
         if(input=="ppm") return "0.000001";
         if(input=="ppb") return "0.000000001";
         if(input=="ppt") return "0.000000000001";
+        if(input=="prc") return "0.01";
         if(input=="i") return "nan";
         else return input;
     }
@@ -468,7 +470,7 @@ int main(int argc, char** argv)
             }
         }
 
-        if(absValueLineCount%2!=0) continue;
+        if(absValueLineCount%2!=0||parenthesesImbalance<0) continue;
         
         if(equation.length()==0) throw std::runtime_error("No valid input");
         std::vector<token> tokens = getTokens(equation);
@@ -642,7 +644,7 @@ void displayHelp()
     "\tfloor(expr), ceil(expr), round(expr), abs(expr), ln(expr)\n"<<
     "\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2."<<
     "\nYou may also have an equation graphed if you include at least one instance of x."<<
-    "\nThere are also a few constants available: pi, e, phi, eul(euler's number), tau(2*pi), rad(180/pi) and deg(pi/180, useful for sin() and stuff), ppm, ppb, ppt\n"<<
+    "\nThere are also a few constants available: pi, e, phi, eul(euler's number), tau(2*pi), rad(180/pi) and deg(pi/180, useful for sin() and stuff),prc(1%), ppm, ppb, ppt\n"<<
     "\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them."<<
     "\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX or graphing (g/y, y for high zoom)\n\n";
     return;
@@ -708,6 +710,7 @@ std::vector<token> getTokens(const std::string &input)
         
         //Constants
         else if (input.find("pi",i)==i) {currentToken="pi"; i++;}
+        else if (input.find("prc",i)==i) {currentToken="prc"; i+=2;}
         else if (input.find("ppm",i)==i) {currentToken="ppm"; i+=2;}
         else if (input.find("ppb",i)==i) {currentToken="ppb"; i+=2;}
         else if (input.find("ppt",i)==i) {currentToken="ppt"; i+=2;}
