@@ -1167,6 +1167,8 @@ long double calculation(std::vector<token> tokens, const long double xValue)
     {
         if((tokens.at(i).type()==token_t::VARIABLE||tokens.at(i).type()==token_t::CONSTANT) && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
             tokens.emplace(tokens.begin()+i++, token("*"));
+        if((tokens.at(i).typeCategory()==tokenCategory_t::NUMBER) && tokens.at(i-1).type()==token_t::VARIABLE||tokens.at(i-1).type()==token_t::CONSTANT)
+            tokens.emplace(tokens.begin()+i++, token("*"));
         if(tokens.at(i).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR&&tokens.at(i-1).type()!=token_t::ROOTARGLEFT&&tokens.at(i-1).type()!=token_t::LOGARGLEFT)
             tokens.emplace(tokens.begin()+i++, token("*"));
         if(tokens.at(i).value()=="-" && tokens.at(i-1).type()!=token_t::BINARYOP && tokens.at(i-1).type()!=token_t::MULTICHARBINARY)
