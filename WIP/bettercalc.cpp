@@ -17,21 +17,7 @@ enum class functions
 {
     NONE,
     ABS,
-    ABSASFUN,
-    ASIN,
-    ACOS,
-    ATAN,
     ROOT,
-    SIN,
-    COS,
-    TAN,
-    SEC,
-    CSC,
-    COT,
-    FLOOR,
-    CEIL,
-    ROUND,
-    LN,
     LOG
 };
 
@@ -47,8 +33,10 @@ enum pass
     SUBEXPRESSIONS,
     UNARYOPS,
     EXPONENTIATION,
+    FUNCTIONS,
     UNARYMINUS,
     MULTIPLICATION,
+    MODULUS,
     ADDITION
 };
 
@@ -58,23 +46,11 @@ enum class token_t
     UNARYOP,
     MULTICHARBINARY,
     MULTICHARUNARY,
+    FUNCTION,
     NUMBER,
     ROOTARGRIGHT,
     ROOTARGLEFT,
     ABSARG,
-    SINARG,
-    COSARG,
-    TANARG,
-    SECARG,
-    CSCARG,
-    COTARG,
-    ASINARG,
-    ACOSARG,
-    ATANARG,
-    FLOORARG,
-    CEILARG,
-    ROUNDARG,
-    LNARG,
     LOGARGRIGHT,
     LOGARGLEFT,
     SUBEXPR,
@@ -86,6 +62,7 @@ enum class token_t
 enum class tokenCategory_t
 {
     NUMBER,
+    FUNCTION,
     SUBEXPR,
     OPERATOR
 };
@@ -135,96 +112,76 @@ class token
             if(isBinaryOp(value.at(0))) return token_t::BINARYOP;
             else if(isUnaryOp(value.at(0))) return token_t::UNARYOP;
         }
-        if(value.length()>1)
-        {
-            if(isBinaryOp(value.at(0)) && isBinaryOp(value.at(1)) && value.at(0)==value.at(1) && value.at(0)=='*') return token_t::MULTICHARBINARY;
-            if(isUnaryOp(value.at(0)) && isUnaryOp(value.at(1)) && value.at(0)==value.at(1) && value.at(0)=='!') return token_t::MULTICHARUNARY;
-        }
+
+        if(isMultiCharUnary(value)) return token_t::MULTICHARUNARY;
+        if(isMultiCharBinary(value)) return token_t::MULTICHARBINARY;
+
         if(isNumber(value)) return token_t::NUMBER;
         if(isConstant(value)) return token_t::CONSTANT;
+        else if(isFunction(value)) return token_t::FUNCTION;
         else if(isRootArgRight(value)) return token_t::ROOTARGRIGHT;
         else if(isRootArgLeft(value)) return token_t::ROOTARGLEFT;
         else if(isLogArgRight(value)) return token_t::LOGARGRIGHT;
         else if(isLogArgLeft(value)) return token_t::LOGARGLEFT;
         else if(isSubexpr(value)) return token_t::SUBEXPR;
         else if(isAbsArg(value)) return token_t::ABSARG;
-        else if(isLnArg(value)) return token_t::LNARG;
-        else if(isSinArg(value)) return token_t::SINARG;
-        else if(isAsinArg(value)) return token_t::ASINARG;
-        else if(isCosArg(value)) return token_t::COSARG;
-        else if(isAcosArg(value)) return token_t::ACOSARG;
-        else if(isTanArg(value)) return token_t::TANARG;
-        else if(isAtanArg(value)) return token_t::ATANARG;
-        else if(isSecArg(value)) return token_t::SECARG;
-        else if(isCscArg(value)) return token_t::CSCARG;
-        else if(isCotArg(value)) return token_t::COTARG;
-        else if(isFloorArg(value)) return token_t::FLOORARG;
-        else if(isCeilArg(value)) return token_t::CEILARG;
-        else if(isRoundArg(value)) return token_t::ROUNDARG;
         else if(value=="x") return token_t::VARIABLE;
         return token_t::INVALID;
     }
     ///////////////////////////////////////////////
     static bool isConstant(const std::string &input)
     {
-        if(input=="pi") return true;
-        if(input=="e") return true;
-        if(input=="tau") return true;
-        if(input=="phi") return true;
-        if(input=="eul") return true;
-        if(input=="rad") return true;
-        if(input=="deg") return true;
-        if(input=="i") return true;
-        else return false;
+        return input=="pi" 
+            || input=="e" 
+            || input=="tau" 
+            || input=="phi" 
+            || input=="eul" 
+            || input=="rad" 
+            || input=="deg" 
+            || input=="i" 
+            || input=="ppm"
+            || input=="ppb"
+            || input=="ppt";
     }
+
     static bool isBinaryOp(const char c)
     {
-        return c=='+' || c=='*' || c=='/' || c=='^';
+        return c=='+' || c=='*' || c=='/' || c=='^' || c=='%';
+    }
+    static bool isMultiCharBinary(const std::string &input)
+    {
+        return input=="mod" || 
+               input == "**" || 
+               input=="npk" || 
+               input=="nck";
+    }
+
+    static bool isMultiCharUnary(const std::string &input)
+    {
+        return input=="!!";
+    }
+
+    static bool isFunction(const std::string &input)
+    {
+        return input=="sin" || 
+            input=="tan" || 
+            input=="cos" ||
+            input=="asin" || 
+            input=="acos" || 
+            input=="atan" ||
+            input=="sec" || 
+            input=="csc" || 
+            input=="cot" ||
+            input=="ln" ||
+            input=="abs" ||
+            input=="floor" ||
+            input=="ceil" ||
+            input=="round";
     }
 
     static bool isUnaryOp(const char c)
     {
         return c=='!'|| c=='-';
-    }
-    ///////////////////////////////////////////////
-    bool isLnArg(std::string &input)
-    {
-        if(input.find("ln(")!=0) return false;
-        
-        for(uint i{3}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
-    }    
-    ///////////////////////////////////////////////
-    bool isSinArg(std::string &input)
-    {
-        if(input.find("sin(")!=0) return false;
-        
-        for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
-    }    
-    ///////////////////////////////////////////////
-    bool isAsinArg(std::string &input)
-    {
-        if(input.find("asin(")!=0) return false;
-        
-        for(uint i{5}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
-    }
-    ///////////////////////////////////////////////
-    bool isAcosArg(std::string &input)
-    {
-        if(input.find("acos(")!=0) return false;
-        
-        for(uint i{5}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
-    }
-    ///////////////////////////////////////////////
-    bool isAtanArg(std::string &input)
-    {
-        if(input.find("atan(")!=0) return false;
-        
-        for(uint i{5}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
     }
     ///////////////////////////////////////////////
     bool isAbsArg(std::string &input)
@@ -235,70 +192,6 @@ class token
         else for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
         return true;
     }    
-    ///////////////////////////////////////////////
-    bool isRoundArg(std::string &input)
-    {
-        if(input.find("round(")!=0) return false;
-        
-        for(uint i{6}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
-    }  
-    ///////////////////////////////////////////////
-    bool isSecArg(std::string &input)
-    {
-        if(input.find("sec(")!=0) return false;
-        
-        for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
-    }    
-    ///////////////////////////////////////////////
-    bool isCscArg(std::string &input)
-    {
-        if(input.find("csc(")!=0) return false;
-        
-        for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
-    }    
-    ///////////////////////////////////////////////
-    bool isCotArg(std::string &input)
-    {
-        if(input.find("cot(")!=0) return false;
-        
-        for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
-    }  
-    ///////////////////////////////////////////////
-    bool isFloorArg(std::string &input)
-    {
-        if(input.find("floor(")!=0) return false;
-        
-        for(uint i{6}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
-    }   
-    ///////////////////////////////////////////////
-    bool isCeilArg(std::string &input)
-    {
-        if(input.find("ceil(")!=0) return false;
-        
-        for(uint i{5}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
-    }   
-    ///////////////////////////////////////////////
-    bool isTanArg(std::string &input)
-    {
-        if(input.find("tan(")!=0) return false;
-        
-        for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
-    }    
-    ///////////////////////////////////////////////
-    bool isCosArg(std::string &input)
-    {
-        if(input.find("cos(")!=0) return false;
-        
-        for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
-        return true;
-    }
     ///////////////////////////////////////////////
     bool isRootArgRight(std::string &input)
     {
@@ -360,13 +253,16 @@ class token
     ///////////////////////////////////////////////
     static std::string replaceConstants(std::string &input)
     {
-        if(input=="e") return "2.7182818284590452354";
+        if(input=="e") return "2.718281828459045235360287471352";
         if(input=="pi") return "3.14159265358979323846";
         if(input=="tau") return "6.28318530717958647692";
         if(input=="phi") return "1.61803398874989484820";
         if(input=="eul") return "0.57721566490153286060";
         if(input=="rad") return "57.2957795130823209";
         if(input=="deg") return "0.0174532925199432958";
+        if(input=="ppm") return "0.000001";
+        if(input=="ppb") return "0.000000001";
+        if(input=="ppt") return "0.000000000001";
         if(input=="i") return "nan";
         else return input;
     }
@@ -374,11 +270,10 @@ class token
     static tokenCategory_t determineTokenCategory(token_t &type)
     {
         if(type==token_t::NUMBER || type==token_t::VARIABLE || type==token_t::CONSTANT) return tokenCategory_t::NUMBER;
-        else if(type==token_t::SUBEXPR || type==token_t::SINARG ||type==token_t::COSARG || type==token_t::TANARG ||
-                type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT ||type==token_t::SECARG ||type==token_t::CSCARG||
-                type==token_t::COTARG || type==token_t::FLOORARG || type==token_t::CEILARG || type==token_t::ROUNDARG || type==token_t::ABSARG||
-                type==token_t::ASINARG || type==token_t::ACOSARG || type==token_t::ATANARG || type==token_t::LNARG ||
+        else if(type==token_t::SUBEXPR ||
+                type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT || type==token_t::ABSARG||
                 type==token_t::LOGARGLEFT || type==token_t::LOGARGRIGHT) return tokenCategory_t::SUBEXPR;
+        else if(type==token_t::FUNCTION) return tokenCategory_t::FUNCTION;
         else return tokenCategory_t::OPERATOR;
     }
     ///////////////////////////////////////////////
@@ -412,9 +307,9 @@ class token
         }
 
         if (tokenType != token_t::NUMBER && tokenType != token_t::CONSTANT) throw std::runtime_error("Tried to get number of token which is not a number");
-        long double valueAsDouble{};
-        valueAsDouble = std::stold(tokenValue);
-        return valueAsDouble;
+        long double valueAsLongDouble{};
+        valueAsLongDouble = std::stold(tokenValue);
+        return valueAsLongDouble;
     }
     ///////////////////////////////////////////////
     std::string value()
@@ -433,30 +328,16 @@ class token
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 std::vector<token> getTokens(const std::string&);
-token getFunctionToken(const std::string& input, const functions functionCallType, uint &i);
 void getVariableArgs(std::vector<token>&, options&);
 void graph(const std::vector<point>&points, const long double yMin, const long double yMax, const uint xClosestToZeroIndex, const options &options);
 long double calculation(std::vector<token>, const long double xValue);
+long double evaluateAbs(token &arg, const long double xValue);
 
 long double evaluateRoot(token denominator, token &enumerator, const long double xValue);
 long double evaluateLog(token denominatorArg, token &enumeratorArg, const long double xValue);
 
 long double evaluateUnary(token&, token&, const long double xValue);
 long double evaluateBinary(token&, token&, token&, const long double xValue);
-long double evaluateLn(token &arg, const long double xValue);
-long double evaluateSin(token &arg, const long double xValue); //Evaluate your sins. (sine)
-long double evaluateCos(token &arg, const long double xValue);
-long double evaluateTan(token &arg, const long double xValue);
-long double evaluateSec(token &arg, const long double xValue);
-long double evaluateCsc(token &arg, const long double xValue);
-long double evaluateCot(token &arg, const long double xValue);
-long double evaluateFloor(token &arg, const long double xValue);
-long double evaluateCeil(token &arg, const long double xValue);
-long double evaluateRound(token &arg, const long double xValue);
-long double evaluateAbs(token &arg, const long double xValue);
-long double evaluateAsin(token &arg, const long double xValue);
-long double evaluateAcos(token &arg, const long double xValue);
-long double evaluateAtan(token &arg, const long double xValue);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -564,8 +445,15 @@ int main(int argc, char** argv)
             std::cout<<"\ntwenty one.\n";         
             return 0;                       
         }  
-        for(uint i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--); //Basic garbage removal
-
+        for(int i{}; i<equation.length(); i++)
+        {
+            if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--); //Basic garbage removal
+            if(i>=0)
+            {
+                if(equation.at(i)=='[') equation.at(i)='('; //Cheating
+                else if(equation.at(i)==']') equation.at(i)=')';
+            }
+        }
         int parenthesesImbalance{};
         uint absValueLineCount{};
         for(uint i{}; i<equation.length(); i++)
@@ -748,13 +636,13 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
 
 void displayHelp()
 {
-    std::cout<<"\nThis calculator allows you to write out an equation using numbers, +, -, *, /, ^ (or **), x, !, !!, |expression|, (expression) and the following functions:\n"<<
+    std::cout<<"\nThis calculator accepts an equation using numbers, +, -, *, /, ^ (or **), x, !, !!, % (or mod), npk, nck, |expr|, (expr) or [expr] and these functions:\n"<<
     "\troot(denominator, enumerator), log(base,value)\n"<<
-    "\tsin(expression), cos(expression), tan(expression), sec(expression), csc(expression), cot(expression), asin(expression), acos(expression), atan(expression)\n"<<
-    "\tfloor(expression), ceil(expression), round(expression), abs(expression), ln(expression)\n"<<
+    "\tsin(expr), cos(expr), tan(expr), sec(expr), csc(expr), cot(expr), asin(expr), acos(expr), atan(expr)\n"<<
+    "\tfloor(expr), ceil(expr), round(expr), abs(expr), ln(expr)\n"<<
     "\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2."<<
     "\nYou may also have an equation graphed if you include at least one instance of x."<<
-    "\nThere are also a few constants available: pi, e, phi, eul(euler's number), tau(2*pi), rad(180/pi) and deg(pi/180, useful for sin() and stuff)\n"<<
+    "\nThere are also a few constants available: pi, e, phi, eul(euler's number), tau(2*pi), rad(180/pi) and deg(pi/180, useful for sin() and stuff), ppm, ppb, ppt\n"<<
     "\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them."<<
     "\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX or graphing (g/y, y for high zoom)\n\n";
     return;
@@ -766,7 +654,7 @@ bool isValidInput(const char c)
 {
     return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'
             ||c==','||c=='e'||c=='s'||c=='i'||c=='n'||c=='c'||c=='a' ||c=='l'||c=='f'||c=='u'||c=='d'||c=='|'||c=='b'||c=='g'||c=='p'
-            ||c=='u'||c=='h';
+            ||c=='u'||c=='h'||c=='m'||c=='%'||c=='k'||c=='['||c==']';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -795,8 +683,34 @@ std::vector<token> getTokens(const std::string &input)
         else if (input.at(i)=='-') currentToken='-';
         else if (input.at(i)=='^') currentToken='^';
         else if (input.at(i)=='/') currentToken='/';
+        else if (input.at(i)=='%') currentToken='%';
+        else if (input.find("mod",i)==i) {currentToken="mod"; i+=2;}
+        else if (input.find("npk",i)==i) {currentToken="npk"; i+=2;}
+        else if (input.find("nck",i)==i) {currentToken="nck"; i+=2;}
 
+        else if (input.find("ln",i)==i) {currentToken="ln"; i++;}
+        else if (input.find("sin",i)==i) {currentToken="sin"; i+=2;}
+        else if (input.find("cos",i)==i) {currentToken="cos"; i+=2;}
+        else if (input.find("tan",i)==i) {currentToken="tan"; i+=2;}
+        else if (input.find("asin",i)==i) {currentToken="asin"; i+=3;}
+        else if (input.find("acos",i)==i) {currentToken="acos"; i+=3;}
+        else if (input.find("atan",i)==i) {currentToken="atan"; i+=3;}
+        else if (input.find("sec",i)==i) {currentToken="sec"; i+=2;}
+        else if (input.find("csc",i)==i) {currentToken="csc"; i+=2;}
+        else if (input.find("cot",i)==i) {currentToken="cot"; i+=2;}
+        else if (input.find("abs",i)==i) {currentToken="abs"; i+=2;}
+        else if (input.find("floor",i)==i) {currentToken="floor"; i+=4;}
+        else if (input.find("ceil",i)==i) {currentToken="ceil"; i+=3;}
+        else if (input.find("round",i)==i) {currentToken="round"; i+=4;}
+        
+
+        else if (input.at(i)=='x') currentToken='x';
+        
+        //Constants
         else if (input.find("pi",i)==i) {currentToken="pi"; i++;}
+        else if (input.find("ppm",i)==i) {currentToken="ppm"; i+=2;}
+        else if (input.find("ppb",i)==i) {currentToken="ppb"; i+=2;}
+        else if (input.find("ppt",i)==i) {currentToken="ppt"; i+=2;}
         else if (input.find("rad",i)==i) {currentToken="rad"; i+=2;}
         else if (input.find("deg",i)==i) {currentToken="deg"; i+=2;}
         else if (input.find("tau",i)==i) {currentToken="tau"; i+=2;}
@@ -827,26 +741,14 @@ std::vector<token> getTokens(const std::string &input)
                 i++;
             }
         }
-        else if (input.at(i)=='x') currentToken='x';
-        else if(input.at(i)=='r'|| 
-                input.at(i)=='s' || 
-                input.at(i)=='t' || 
-                input.at(i)=='c' || 
-                input.at(i)=='|' ||  
-                input.at(i)=='f' || 
-                input.at(i)=='a' || 
-                input.at(i)=='(' ||
-                input.at(i)=='l')
+
+        else if(input.at(i)=='r'||
+                input.at(i)=='|' || 
+                input.at(i)=='(')
         {
             currentToken.clear();
-            if(input.at(i)=='r') functionCallType=functions::ROUND;
-            else if(input.at(i)=='s')functionCallType=functions::SIN;
-            else if(input.at(i)=='c')functionCallType=functions::COS;
-            else if(input.at(i)=='t')functionCallType=functions::TAN;
-            else if(input.at(i)=='f')functionCallType=functions::FLOOR;
+            if(input.at(i)=='r') functionCallType=functions::ROOT;
             else if(input.at(i)=='|')functionCallType=functions::ABS;
-            else if(input.at(i)=='a')functionCallType=functions::ABSASFUN;
-            else if(input.at(i)=='l') functionCallType=functions::LN;
             else functionCallType=functions::NONE;
 
             
@@ -891,66 +793,6 @@ std::vector<token> getTokens(const std::string &input)
                 }
                 currentToken.push_back(input.at(i));
             }
-
-            if(functionCallType==functions::ABSASFUN)
-            {
-                if(input.find("abs(", i)!=i) functionCallType=functions::ASIN;
-            }
-            if(functionCallType==functions::ASIN)
-            {
-                if(input.find("asin(", i)!=i) functionCallType=functions::ACOS;
-            }
-            if(functionCallType==functions::ACOS)
-            {
-                if(input.find("acos(", i)!=i) functionCallType=functions::ATAN;
-            }
-            if(functionCallType==functions::ATAN)
-            {
-                if(input.find("atan(", i)!=i) std::runtime_error("Bad function name or stray characters!");
-            }
-            if(functionCallType==functions::FLOOR)
-            {
-                if(input.find("floor(", i)!=i) throw std::runtime_error("Bad function name or stray characters!");
-            }
-            if(functionCallType==functions::SIN) //Parses your sins
-            {
-                if(input.find("sin(", i)!=i) functionCallType=functions::SEC;
-            }
-            if(functionCallType==functions::SEC)
-            {
-                if(input.find("sec(", i)!=i) throw std::runtime_error("Bad function name or stray chararacters!");
-            }
-            if(functionCallType==functions::COS)
-            {
-                if(input.find("cos(", i)!=i) functionCallType=functions::CSC;
-            }
-            if(functionCallType==functions::CSC)
-            {
-                if(input.find("csc(", i)!=i) functionCallType=functions::COT;
-            }
-            if(functionCallType==functions::COT)
-            {
-                if(input.find("cot(", i)!=i) functionCallType=functions::CEIL;
-            }
-            if(functionCallType==functions::CEIL)
-            {
-                if(input.find("ceil(", i)!=i) throw std::runtime_error("Bad function name or stray characters!");
-            }
-            if(functionCallType==functions::TAN)
-            {
-                if(input.find("tan(", i)!=i) throw std::runtime_error("Bad function name or stray characters!");
-            }
-            if(functionCallType==functions::ROUND)
-            {
-                if(input.find("round(", i)!=i) functionCallType=functions::ROOT;
-            }
-            if(functionCallType==functions::LN)
-            {
-                if(input.find("ln(", i)!=i) functionCallType=functions::LOG;
-            }
-           
-            if(functionCallType!=functions::ABS && functionCallType!=functions::ROOT && functionCallType!=functions::LOG && functionCallType!=functions::NONE) tokens.emplace_back(getFunctionToken(input, functionCallType, i));
-
             //Parse root()
             for(; i<input.length() && functionCallType==functions::ROOT; i++)
             {
@@ -1059,53 +901,6 @@ std::vector<token> getTokens(const std::string &input)
 
     return tokens;
 }
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-token getFunctionToken(const std::string& input, const functions functionCallType, uint &i)
-{
-    std::string currentToken;
-    //in: functionName(expr)
-    switch (functionCallType) 
-    {
-        case functions::FLOOR: {currentToken.append("floor("); i+=6; break;}
-        case functions::ROUND: {currentToken.append("round("); i+=6; break;}
-
-        case functions::CEIL: {currentToken.append("ceil("); i+=5; break;}
-        case functions::ASIN: {currentToken.append("asin("); i+=5; break;}
-        case functions::ACOS: {currentToken.append("acos("); i+=5; break;}
-        case functions::ATAN: {currentToken.append("atan("); i+=5; break;}
-
-        case functions::ABSASFUN: {currentToken.append("abs("); i+=4; break;}
-        case functions::SIN: {currentToken.append("sin("); i+=4; break;}
-        case functions::COS: {currentToken.append("cos("); i+=4; break;}
-        case functions::TAN: {currentToken.append("tan("); i+=4; break;}
-        case functions::SEC: {currentToken.append("sec("); i+=4; break;}
-        case functions::CSC: {currentToken.append("csc("); i+=4; break;}
-        case functions::COT: {currentToken.append("cot("); i+=4; break;}
-        
-        case functions::LN: {currentToken.append("ln("); i+=3; break;}
-
-        default: std::runtime_error("Unhandled function");
-    }
-    int nestingLevel{};
-
-    for(; i<input.length(); i++)
-    {
-        if(input.at(i)==')') nestingLevel--;
-        else if(input.at(i)=='(') nestingLevel++;
-
-        if(nestingLevel>=0) currentToken.push_back(input.at(i));
-        else
-        {
-            currentToken.push_back(input.at(i));
-            return token(currentToken);
-        }
-        if(i==input.length()-1) return token(currentToken);
-    }
-    std::cerr<<'\n'<<input<<'\n';
-    throw std::runtime_error("Not a valid function!");
-    //return token(input);
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1167,14 +962,29 @@ long double calculation(std::vector<token> tokens, const long double xValue)
     {
         if((tokens.at(i).type()==token_t::VARIABLE||tokens.at(i).type()==token_t::CONSTANT) && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
             tokens.emplace(tokens.begin()+i++, token("*"));
-        if((tokens.at(i).typeCategory()==tokenCategory_t::NUMBER) && tokens.at(i-1).type()==token_t::VARIABLE||tokens.at(i-1).type()==token_t::CONSTANT)
+        if(i==tokens.size()) break;
+        if((tokens.at(i).typeCategory()==tokenCategory_t::NUMBER) && (tokens.at(i-1).type()==token_t::VARIABLE||tokens.at(i-1).type()==token_t::CONSTANT))
             tokens.emplace(tokens.begin()+i++, token("*"));
-        if(tokens.at(i).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR&&tokens.at(i-1).type()!=token_t::ROOTARGLEFT&&tokens.at(i-1).type()!=token_t::LOGARGLEFT)
+        if(i==tokens.size()) break;
+        if((tokens.at(i).typeCategory()==tokenCategory_t::FUNCTION) && (tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER))
             tokens.emplace(tokens.begin()+i++, token("*"));
-        if(tokens.at(i).value()=="-" && tokens.at(i-1).type()!=token_t::BINARYOP && tokens.at(i-1).type()!=token_t::MULTICHARBINARY)
+        if(i==tokens.size()) break;
+        if((tokens.at(i).typeCategory()==tokenCategory_t::SUBEXPR||tokens.at(i).typeCategory()==tokenCategory_t::FUNCTION) && tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR&& tokens.at(i-1).typeCategory()!=tokenCategory_t::FUNCTION&&tokens.at(i-1).type()!=token_t::ROOTARGLEFT&&tokens.at(i-1).type()!=token_t::LOGARGLEFT)
+            tokens.emplace(tokens.begin()+i++, token("*"));
+        if(i==tokens.size()) break;
+        if(tokens.at(i).value()=="-" && tokens.at(i-1).type()!=token_t::BINARYOP && tokens.at(i-1).type()!=token_t::MULTICHARBINARY && tokens.at(i-1).type()!=token_t::UNARYOP && tokens.at(i-1).type()!=token_t::MULTICHARUNARY)
             tokens.emplace(tokens.begin()+i++, token("+"));
-        if(tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR&&tokens.at(i).type()!=token_t::ROOTARGRIGHT&&tokens.at(i).type()!=token_t::LOGARGRIGHT)
+        if(i==tokens.size()) break;
+        if((tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR||tokens.at(i-1).typeCategory()==tokenCategory_t::FUNCTION) && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR&& tokens.at(i).typeCategory()!=tokenCategory_t::NUMBER&& tokens.at(i).typeCategory()!=tokenCategory_t::SUBEXPR&&tokens.at(i).type()!=token_t::ROOTARGRIGHT&&tokens.at(i).type()!=token_t::LOGARGRIGHT&&tokens.at(i).type()!=token_t::FUNCTION)
             tokens.emplace(tokens.begin()+i++, token("*"));
+    }
+
+    for(uint i{1}; i<tokens.size(); i++)
+    {
+        if(tokens.at(i).type()==token_t::BINARYOP && tokens.at(i-1).type()==token_t::BINARYOP && tokens.at(i).value()!="-" && tokens.at(i-1).value()!="+")
+        {
+            tokens.erase(tokens.begin()+i);
+        }
     }
 
     for(long unsigned int pass{}; pass<=ADDITION; pass++)
@@ -1187,6 +997,10 @@ long double calculation(std::vector<token> tokens, const long double xValue)
                 if(tokens.at(i).type()==token_t::SUBEXPR)
                 {
                     evaluatedSubexpr=calculation(getTokens(tokens.at(i).value()), xValue);
+                }
+                else if(tokens.at(i).type()==token_t::ABSARG)
+                {
+                    evaluatedSubexpr=evaluateAbs(tokens.at(i), xValue);
                 }
                 else if(tokens.at(i).type()==token_t::ROOTARGRIGHT)
                 {
@@ -1209,21 +1023,6 @@ long double calculation(std::vector<token> tokens, const long double xValue)
                         i--;
                     }
                 }
-
-                else if(tokens.at(i).type()==token_t::SINARG) evaluatedSubexpr=evaluateSin(tokens.at(i), xValue); 
-                else if(tokens.at(i).type()==token_t::ASINARG) evaluatedSubexpr=evaluateAsin(tokens.at(i), xValue);
-                else if(tokens.at(i).type()==token_t::ACOSARG) evaluatedSubexpr=evaluateAcos(tokens.at(i), xValue);   
-                else if(tokens.at(i).type()==token_t::ATANARG) evaluatedSubexpr=evaluateAtan(tokens.at(i), xValue);    
-                else if(tokens.at(i).type()==token_t::COSARG) evaluatedSubexpr=evaluateCos(tokens.at(i), xValue);
-                else if(tokens.at(i).type()==token_t::TANARG) evaluatedSubexpr=evaluateTan(tokens.at(i), xValue);
-                else if(tokens.at(i).type()==token_t::SECARG) evaluatedSubexpr=evaluateSec(tokens.at(i), xValue);
-                else if(tokens.at(i).type()==token_t::CSCARG) evaluatedSubexpr=evaluateCsc(tokens.at(i), xValue);
-                else if(tokens.at(i).type()==token_t::COTARG) evaluatedSubexpr=evaluateCot(tokens.at(i), xValue); 
-                else if(tokens.at(i).type()==token_t::FLOORARG) evaluatedSubexpr=evaluateFloor(tokens.at(i), xValue);  
-                else if(tokens.at(i).type()==token_t::CEILARG) evaluatedSubexpr=evaluateCeil(tokens.at(i), xValue);
-                else if(tokens.at(i).type()==token_t::ROUNDARG) evaluatedSubexpr=evaluateRound(tokens.at(i), xValue);  
-                else if(tokens.at(i).type()==token_t::ABSARG) evaluatedSubexpr=evaluateAbs(tokens.at(i), xValue);  
-                else if(tokens.at(i).type()==token_t::LNARG) evaluatedSubexpr=evaluateLn(tokens.at(i), xValue); 
 
                 if(tokens.at(i).typeCategory()==tokenCategory_t::SUBEXPR && tokens.at(i).type()!=token_t::ROOTARGLEFT && tokens.at(i).type()!=token_t::LOGARGLEFT)
                 {
@@ -1277,9 +1076,35 @@ long double calculation(std::vector<token> tokens, const long double xValue)
                         }
                     }
             }
+            else if (pass==FUNCTIONS)
+            {
+                if(i!=0&&(tokens.at(i-1).value()=="sin" || 
+                tokens.at(i-1).value()=="cos" || 
+                tokens.at(i-1).value()=="tan" || 
+                tokens.at(i-1).value()=="asin" || 
+                tokens.at(i-1).value()=="acos" || 
+                tokens.at(i-1).value()=="atan" ||
+                tokens.at(i-1).value()=="sec" || 
+                tokens.at(i-1).value()=="csc" || 
+                tokens.at(i-1).value()=="cot" ||
+                tokens.at(i-1).value()=="abs" ||
+                tokens.at(i-1).value()=="floor" ||
+                tokens.at(i-1).value()=="ceil" ||
+                tokens.at(i-1).value()=="round" ||
+                tokens.at(i-1).value()=="ln") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
+                {
+                    long double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
+                    resultAsOSStream << evaluatedUnary;
+                    tokens.at(i-1)=token(resultAsOSStream.str());
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();
+                    tokens.erase(tokens.begin()+i);
+                    i--;
+                }
+            }
             else if (pass==UNARYMINUS)
             {
-                if(i!=0&&tokens.at(i-1).value()=="-" && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
+                if(i!=0&&(tokens.at(i-1).value()=="-") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
                     long double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
                     resultAsOSStream << evaluatedUnary;
@@ -1293,7 +1118,7 @@ long double calculation(std::vector<token> tokens, const long double xValue)
             else if(pass==MULTIPLICATION)
             {
                 if(i<=1) continue;
-                if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="*" || tokens.at(i-1).value()=="/") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
+                if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="*" || tokens.at(i-1).value()=="/" || tokens.at(i-1).value()=="npk" || tokens.at(i-1).value()=="nck" || tokens.at(i-1).value()=="mod" || tokens.at(i-1).value()=="%") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
                     long double evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
                     resultAsOSStream << evaluatedBinary;
@@ -1335,74 +1160,9 @@ long double calculation(std::vector<token> tokens, const long double xValue)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double evaluateLn(token &arg, const long double xValue)
-{
-    return std::log(calculation(getTokens(arg.value()), xValue));
-}
-
-long double evaluateSin(token &arg, const long double xValue)
-{
-    return std::sin(calculation(getTokens(arg.value()), xValue));
-}
-
-long double evaluateCos(token &arg, const long double xValue)
-{
-    return std::cos(calculation(getTokens(arg.value()), xValue));
-}
-
-long double evaluateTan(token &arg, const long double xValue)
-{
-    return std::tan(calculation(getTokens(arg.value()), xValue));
-}
-
-long double evaluateCsc(token &arg, const long double xValue)
-{
-    return 1/std::sin(calculation(getTokens(arg.value()), xValue));
-}
-
-long double evaluateSec(token &arg, const long double xValue)
-{
-    return 1/std::cos(calculation(getTokens(arg.value()), xValue));
-}
-
-long double evaluateCot(token &arg, const long double xValue)
-{
-    return 1/std::tan(calculation(getTokens(arg.value()), xValue));
-}
-
-long double evaluateFloor(token &arg, const long double xValue)
-{
-    return std::floor(calculation(getTokens(arg.value()), xValue));
-}
-
-long double evaluateCeil(token &arg, const long double xValue)
-{
-    return std::ceil(calculation(getTokens(arg.value()), xValue));
-}
-
-long double evaluateRound(token &arg, const long double xValue)
-{
-    return std::round(calculation(getTokens(arg.value()), xValue));
-}
-
 long double evaluateAbs(token &arg, const long double xValue)
 {
     return std::abs(calculation(getTokens(arg.value()), xValue));
-}
-
-long double evaluateAsin(token &arg, const long double xValue)
-{
-    return std::asin(calculation(getTokens(arg.value()), xValue));
-}
-
-long double evaluateAcos(token &arg, const long double xValue)
-{
-    return std::acos(calculation(getTokens(arg.value()), xValue));
-}
-
-long double evaluateAtan(token &arg, const long double xValue)
-{
-    return std::atan(calculation(getTokens(arg.value()), xValue));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1450,9 +1210,13 @@ long double evaluateBinary(token &numberStringLeft, token &operation, token &num
     long double numberRight{numberStringRight.number(xValue)};
 
     if(operation.value()=="+") return numberLeft+numberRight;
-    if(operation.value()=="*") return numberLeft*numberRight;
-    if(operation.value()=="/") return numberLeft/numberRight;
-    if(operation.value()=="^" || operation.value()=="**") return std::pow(numberLeft, numberRight);
+    else if(operation.value()=="*") return numberLeft*numberRight;
+    else if(operation.value()=="/") return numberLeft/numberRight;
+    else if(operation.value()=="^" || operation.value()=="**") return std::pow(numberLeft, numberRight);
+    else if(operation.value()=="mod" || operation.value()=="%") return std::fmod(numberLeft,numberRight);
+    else if(operation.value()=="npk") return (std::tgamma(numberLeft+1)/std::tgamma(numberLeft-numberRight+1));
+    else if(operation.value()=="nck") return (std::tgamma(numberLeft+1)/(std::tgamma(numberRight+1)*std::tgamma(numberLeft-numberRight+1)));
+
     else throw std::runtime_error("Somehow, an unhandled binary-type operation?\nCongrats bro, tell me how you did that");
 }
 
@@ -1463,6 +1227,21 @@ long double evaluateUnary(token &numberString, token &operation, const long doub
     long double number=numberString.number(xValue);
     long double result{1};
     if(operation.value()=="-") return number*-1;
+    if(operation.value()=="sin") return std::sin(std::fmod(number,2*M_PI));
+    if(operation.value()=="cos") return std::cos(std::fmod(number,2*M_PI));
+    if(operation.value()=="tan") return std::tan(std::fmod(number,M_PI));
+    if(operation.value()=="sec") return 1/std::cos(std::fmod(number,2*M_PI));
+    if(operation.value()=="csc") return 1/std::sin(std::fmod(number,2*M_PI));
+    if(operation.value()=="cot") return 1/std::tan(std::fmod(number,M_PI));
+    if(operation.value()=="asin") return std::asin(number);
+    if(operation.value()=="acos") return std::acos(number);
+    if(operation.value()=="atan") return std::atan(number);
+    if(operation.value()=="round") return std::round(number);
+    if(operation.value()=="floor") return std::floor(number);
+    if(operation.value()=="ceil") return std::ceil(number);
+    if(operation.value()=="abs") return std::abs(number);
+    if(operation.value()=="ln") return std::log(number);
+
     if(operation.value()=="!!")
         for(int i{static_cast<int>(std::round(number))%2+2}; i<static_cast<int>(std::round(number))+1; i+=2)
         {
