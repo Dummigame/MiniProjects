@@ -979,7 +979,7 @@ long double calculation(std::vector<token> tokens, const long double xValue)
 
     for(long unsigned int pass{}; pass<=ADDITION; pass++)
     {
-        for(uint i{}; i<tokens.size(); i++)
+        for(int i{}; i<tokens.size(); i++)
         {
             if(pass==SUBEXPRESSIONS)
             {
