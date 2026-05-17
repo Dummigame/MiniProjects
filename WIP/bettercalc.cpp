@@ -13,14 +13,6 @@
 void displayHelp();
 bool isValidInput(const char);
 
-enum class functions
-{
-    NONE,
-    ABS,
-    ROOT,
-    LOG
-};
-
 enum drawPos
 {
     ZERO,
@@ -165,14 +157,29 @@ class token
     static bool isFunction(const std::string &input)
     {
         return input=="sin" || 
-            input=="tan" || 
             input=="cos" ||
+            input=="tan" ||
+            input=="sinh" || 
+            input=="cosh" || 
+            input=="tanh" ||
+            input=="asinh" || 
+            input=="acosh" || 
+            input=="atanh" ||
             input=="asin" || 
             input=="acos" || 
             input=="atan" ||
             input=="sec" || 
             input=="csc" || 
             input=="cot" ||
+            input=="sech" || 
+            input=="csch" || 
+            input=="coth" ||
+            input=="asec" || 
+            input=="acsc" || 
+            input=="acot" ||
+            input=="asech" || 
+            input=="acsch" || //Screw math. Genuinely. What the hell.
+            input=="acoth" ||
             input=="ln" ||
             input=="abs" ||
             input=="floor" ||
@@ -583,22 +590,21 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
     if(height>yRange*3) height=yRange+15;
     const long double length=xRange;
 
-    if(height>600 || length >200)
-    {
-        std::cerr<<"\nThe graph would be too large.\n";
-        return;
-    }
-
     drawPos yAxisPos=ZERO;
     if(options.xMin>=0) yAxisPos=LEFT;
     else if(options.xMax<=0) yAxisPos=RIGHT;
 
+    if(height>2000 || length>500)
+    {
+        std::cout<<"\nToo many calculations for plotting.\n";
+        return; 
+    }
 
     std::vector<std::string> graph;
     std::ostringstream graphLine;
     for(uint rows{}; rows<height; rows++)
     {
-        if(rows>height/2+1 && yMin>=(height/2+1-rows)*options.xStep) break; //End if bottom of graph reached
+        if(rows>height/2+1 && yMin>=(height/2+1-rows)*options.xStep) break; //End if bottom of graph reached (chops lines at bottom)
         for(uint i{}; i<length; i++)
         {
             if(points.at(i).y==INFINITY || points.at(i).y==-INFINITY) throw std::runtime_error("Encountered infinity!");
@@ -631,7 +637,19 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
             }
         }
     }
-    for(uint i{}; i<graph.size(); i++) std::cout<<graph.at(i);
+
+    uint i{1};
+    for(; graph.at(i).find('+')==std::string::npos; i++); //Skip until a line with a point (chops off unnecessary lines from top)
+
+
+    if(graph.size()-i>300 || length >200)
+    {
+        std::cerr<<"\nThe graph would be too large.\n";
+        return;
+    }
+    std::cout<<graph.at(0); //Print line with top of y axis
+
+    for(; i<graph.size(); i++) std::cout<<graph.at(i);
     return;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -639,9 +657,10 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
 void displayHelp()
 {
     std::cout<<"\nThis calculator accepts an equation using numbers, +, -, *, /, ^ (or **), x, !, !!, % (or mod), npk, nck, |expr|, (expr) or [expr] and these functions:\n"<<
-    "\troot(denominator, enumerator), log(base,value)\n"<<
-    "\tsin(expr), cos(expr), tan(expr), sec(expr), csc(expr), cot(expr), asin(expr), acos(expr), atan(expr)\n"<<
-    "\tfloor(expr), ceil(expr), round(expr), abs(expr), ln(expr)\n"<<
+    "    root(denominator, enumerator), log(base,value)\n"<<
+    "    sin(), cos(), tan(), sec(), cosec(), cot(), arcsin(), arccos(), arctan(), arcsec(), arccosec(), arccot()\n"<<
+    "    sinh(), cosh(), tanh(), sech(), cosech(), coth(), arcsinh(), arccosh(), arctanh(), arcsech(), arccosech(), arccoth()\n"<<
+    "    floor(), ceil(), round(), abs(), ln()\n"<<
     "\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2."<<
     "\nYou may also have an equation graphed if you include at least one instance of x."<<
     "\nThere are also a few constants available: pi, e, phi, eul(euler's number), tau(2*pi), rad(180/pi) and deg(pi/180, useful for sin() and stuff),prc(1%), ppm, ppb, ppt\n"<<
@@ -656,7 +675,7 @@ bool isValidInput(const char c)
 {
     return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'
             ||c==','||c=='e'||c=='s'||c=='i'||c=='n'||c=='c'||c=='a' ||c=='l'||c=='f'||c=='u'||c=='d'||c=='|'||c=='b'||c=='g'||c=='p'
-            ||c=='u'||c=='h'||c=='m'||c=='%'||c=='k'||c=='['||c==']';
+            ||c=='u'||c=='h'||c=='m'||c=='%'||c=='k'||c=='['||c==']'||c=='h';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -672,7 +691,6 @@ std::vector<token> getTokens(const std::string &input)
     uint endOfFirstArg{};
     std::vector<token> tokens{};
     std::string currentToken{};
-    functions functionCallType{};
     bool fixOffByOne{};
     bool inFunctionCall{};
     bool rootHasTwoArgs{};
@@ -690,22 +708,68 @@ std::vector<token> getTokens(const std::string &input)
         else if (input.find("npk",i)==i) {currentToken="npk"; i+=2;}
         else if (input.find("nck",i)==i) {currentToken="nck"; i+=2;}
 
-        else if (input.find("ln",i)==i) {currentToken="ln"; i++;}
-        else if (input.find("sin",i)==i) {currentToken="sin"; i+=2;}
-        else if (input.find("cos",i)==i) {currentToken="cos"; i+=2;}
-        else if (input.find("tan",i)==i) {currentToken="tan"; i+=2;}
+        //Functions
+
+        else if (input.find("asinh",i)==i) {currentToken="asinh"; i+=4;}
+        else if (input.find("acosh",i)==i) {currentToken="acosh"; i+=4;}
+        else if (input.find("atanh",i)==i) {currentToken="atanh"; i+=4;}
+
+        else if (input.find("asech",i)==i) {currentToken="asech"; i+=4;}
+        else if (input.find("acsch",i)==i) {currentToken="acsch"; i+=4;}
+        else if (input.find("acoth",i)==i) {currentToken="acoth"; i+=4;}
+
+        else if (input.find("arcsech",i)==i) {currentToken="asech"; i+=6;} //Alias
+        else if (input.find("arccsch",i)==i) {currentToken="acsch"; i+=6;} //Alias
+        else if (input.find("arccosech",i)==i) {currentToken="acsch"; i+=8;} //Alias
+        else if (input.find("acosech",i)==i) {currentToken="acsch"; i+=6;} //Alias
+        else if (input.find("arccoth",i)==i) {currentToken="acoth"; i+=6;} //Alias
+        else if (input.find("arcsinh",i)==i) {currentToken="asinh"; i+=6;} //Alias
+        else if (input.find("arccosh",i)==i) {currentToken="acosh"; i+=6;} //Alias
+        else if (input.find("arctanh",i)==i) {currentToken="atanh"; i+=6;} //Alias
+
+        else if (input.find("asec",i)==i) {currentToken="asec"; i+=4;}
+        else if (input.find("acsc",i)==i) {currentToken="acsc"; i+=4;}
+        else if (input.find("acot",i)==i) {currentToken="acot"; i+=4;}
+        else if (input.find("arcsec",i)==i) {currentToken="asec"; i+=5;} //Alias
+        else if (input.find("arccsc",i)==i) {currentToken="acsc"; i+=5;} //Alias
+        else if (input.find("acosec",i)==i) {currentToken="acsc"; i+=5;} //Alias
+        else if (input.find("arccosec",i)==i) {currentToken="acsc"; i+=7;} //Alias
+        else if (input.find("arccot",i)==i) {currentToken="acot"; i+=5;} //Alias
+
+        else if (input.find("arcsin",i)==i) {currentToken="asin"; i+=5;} //Alias
+        else if (input.find("arccos",i)==i) {currentToken="acos"; i+=5;} //Alias
+        else if (input.find("arctan",i)==i) {currentToken="atan"; i+=5;} //Alias
         else if (input.find("asin",i)==i) {currentToken="asin"; i+=3;}
         else if (input.find("acos",i)==i) {currentToken="acos"; i+=3;}
         else if (input.find("atan",i)==i) {currentToken="atan"; i+=3;}
+
+        else if (input.find("sinh",i)==i) {currentToken="sinh"; i+=3;}
+        else if (input.find("cosh",i)==i) {currentToken="cosh"; i+=3;}
+        else if (input.find("tanh",i)==i) {currentToken="tanh"; i+=3;}
+
+        else if (input.find("sech",i)==i) {currentToken="sech"; i+=3;}
+        else if (input.find("csch",i)==i) {currentToken="csch"; i+=3;}
+        else if (input.find("coth",i)==i) {currentToken="coth"; i+=3;}
+        else if (input.find("cosech",i)==i) {currentToken="csch"; i+=5;} //Alias
+        else if (input.find("cotanh",i)==i) {currentToken="coth"; i+=5;} //Alias
+
         else if (input.find("sec",i)==i) {currentToken="sec"; i+=2;}
         else if (input.find("csc",i)==i) {currentToken="csc"; i+=2;}
+        else if (input.find("cosec",i)==i) {currentToken="csc"; i+=4;} //Alias
         else if (input.find("cot",i)==i) {currentToken="cot"; i+=2;}
+        else if (input.find("cotan",i)==i) {currentToken="cot"; i+=4;} //Alias
+
+        else if (input.find("sin",i)==i) {currentToken="sin"; i+=2;}
+        else if (input.find("cos",i)==i) {currentToken="cos"; i+=2;}
+        else if (input.find("tan",i)==i) {currentToken="tan"; i+=2;}
+
+        else if (input.find("ln",i)==i) {currentToken="ln"; i++;}
         else if (input.find("abs",i)==i) {currentToken="abs"; i+=2;}
         else if (input.find("floor",i)==i) {currentToken="floor"; i+=4;}
         else if (input.find("ceil",i)==i) {currentToken="ceil"; i+=3;}
         else if (input.find("round",i)==i) {currentToken="round"; i+=4;}
         
-
+        //Variable
         else if (input.at(i)=='x') currentToken='x';
         
         //Constants
@@ -965,7 +1029,9 @@ long double calculation(std::vector<token> tokens, const long double xValue)
         if(tokens.at(i).value()=="-" && tokens.at(i-1).type()!=token_t::BINARYOP && tokens.at(i-1).type()!=token_t::MULTICHARBINARY && tokens.at(i-1).type()!=token_t::UNARYOP && tokens.at(i-1).type()!=token_t::MULTICHARUNARY)
             tokens.emplace(tokens.begin()+i++, token("+"));
         if(i==tokens.size()) break;
-        if((tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR||tokens.at(i-1).typeCategory()==tokenCategory_t::FUNCTION) && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR&& tokens.at(i).typeCategory()!=tokenCategory_t::NUMBER&& tokens.at(i).typeCategory()!=tokenCategory_t::SUBEXPR&&tokens.at(i).type()!=token_t::ROOTARGRIGHT&&tokens.at(i).type()!=token_t::LOGARGRIGHT&&tokens.at(i).type()!=token_t::FUNCTION)
+        if((tokens.at(i-1).typeCategory()==tokenCategory_t::FUNCTION) && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR&& tokens.at(i).typeCategory()!=tokenCategory_t::NUMBER&& tokens.at(i).typeCategory()!=tokenCategory_t::SUBEXPR&&tokens.at(i).type()!=token_t::ROOTARGRIGHT&&tokens.at(i).type()!=token_t::LOGARGRIGHT&&tokens.at(i).type()!=token_t::FUNCTION)
+            tokens.emplace(tokens.begin()+i++, token("*"));
+        if((tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR) && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR&& tokens.at(i).typeCategory()!=tokenCategory_t::SUBEXPR&&tokens.at(i).type()!=token_t::ROOTARGRIGHT&&tokens.at(i).type()!=token_t::LOGARGRIGHT&&tokens.at(i).type()!=token_t::FUNCTION)
             tokens.emplace(tokens.begin()+i++, token("*"));
     }
 
@@ -1068,20 +1134,7 @@ long double calculation(std::vector<token> tokens, const long double xValue)
             }
             else if (pass==FUNCTIONS)
             {
-                if(i!=0&&(tokens.at(i-1).value()=="sin" || 
-                tokens.at(i-1).value()=="cos" || 
-                tokens.at(i-1).value()=="tan" || 
-                tokens.at(i-1).value()=="asin" || 
-                tokens.at(i-1).value()=="acos" || 
-                tokens.at(i-1).value()=="atan" ||
-                tokens.at(i-1).value()=="sec" || 
-                tokens.at(i-1).value()=="csc" || 
-                tokens.at(i-1).value()=="cot" ||
-                tokens.at(i-1).value()=="abs" ||
-                tokens.at(i-1).value()=="floor" ||
-                tokens.at(i-1).value()=="ceil" ||
-                tokens.at(i-1).value()=="round" ||
-                tokens.at(i-1).value()=="ln") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
+                if(i!=0&&(tokens.at(i-1).type()==token_t::FUNCTION) && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
                     long double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
                     resultAsOSStream << evaluatedUnary;
@@ -1217,15 +1270,39 @@ long double evaluateUnary(token &numberString, token &operation, const long doub
     long double number=numberString.number(xValue);
     long double result{1};
     if(operation.value()=="-") return number*-1;
+
     if(operation.value()=="sin") return std::sin(std::fmod(number,2*M_PI));
     if(operation.value()=="cos") return std::cos(std::fmod(number,2*M_PI));
     if(operation.value()=="tan") return std::tan(std::fmod(number,M_PI));
+
     if(operation.value()=="sec") return 1/std::cos(std::fmod(number,2*M_PI));
     if(operation.value()=="csc") return 1/std::sin(std::fmod(number,2*M_PI));
     if(operation.value()=="cot") return 1/std::tan(std::fmod(number,M_PI));
+
+    if(operation.value()=="asec") return std::acos(1/number);
+    if(operation.value()=="acsc") return std::asin(1/number);
+    if(operation.value()=="acot") return std::atan(1/number);
+
+    if(operation.value()=="sinh") return std::sinh(number);
+    if(operation.value()=="cosh") return std::cosh(number);
+    if(operation.value()=="tanh") return std::tanh(number);
+
+    if(operation.value()=="asinh") return std::asinh(number);
+    if(operation.value()=="acosh") return std::acosh(number);
+    if(operation.value()=="atanh") return std::atanh(number);
+
+    if(operation.value()=="asech") return std::acosh(1/number);
+    if(operation.value()=="acsch") return std::asinh(1/number);
+    if(operation.value()=="acoth") return std::atanh(1/number);
+
+    if(operation.value()=="sech") return 1/std::cosh(number);
+    if(operation.value()=="csch") return 1/std::sinh(number);
+    if(operation.value()=="coth") return 1/std::tanh(number);
+
     if(operation.value()=="asin") return std::asin(number);
     if(operation.value()=="acos") return std::acos(number);
     if(operation.value()=="atan") return std::atan(number);
+    //It's all just trig...
     if(operation.value()=="round") return std::round(number);
     if(operation.value()=="floor") return std::floor(number);
     if(operation.value()=="ceil") return std::ceil(number);
