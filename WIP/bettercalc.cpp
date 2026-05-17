@@ -745,141 +745,127 @@ std::vector<token> getTokens(const std::string &input)
             }
         }
 
-        else if(input.at(i)=='r'||
-                input.at(i)=='|' || 
-                input.at(i)=='(')
-        {
-            currentToken.clear();
-            if(input.at(i)=='r') functionCallType=functions::ROOT;
-            else if(input.at(i)=='|')functionCallType=functions::ABS;
-            else functionCallType=functions::NONE;
-
             
-            //Parse |x|... or ||x|| if the user hates me... or ||||x||||. whatever.
-            for(startOfFunction=i; i<input.length() && functionCallType==functions::ABS; i++)
+        //Parse |x|... or ||x|| if the user hates me... or ||||x||||. whatever.
+        if(currentToken=="" && input.at(i)=='|') for(startOfFunction=i; i<input.length(); i++)
+        {
+            if(!inFunctionCall)
             {
-                if(!inFunctionCall)
+                startOfFunction=i;
+                for(;input.at(i)=='|' && i<input.length()-1;i++)
+                {
+                    absNestingLevel++;
+                    currentToken.push_back('|');
+                }
+                inFunctionCall=true;
+                nestingOfFunction=nestingLevel;
+                if(i==input.length()-1) throw std::runtime_error("Bad absolute value... parentheses? Things? Lines?");
+            }
+            if(input.at(i)==')')
+            {
+                inParentheses--;
+                nestingLevel--;
+            }
+            else if(input.at(i)=='(')
+            {
+                inParentheses++;
+                nestingLevel++;
+            }
+            if(i<input.length() && inParentheses==false && input.at(i)=='|') absNestingLevel--;
+            if(i>startOfFunction+1 && nestingLevel<=0 && absNestingLevel==0 && inParentheses==false && input.at(i)=='|')
+            {
+                currentToken.push_back(input.at(i));
+                tokens.emplace_back(currentToken);
+                break;
+            }
+            else if(i==input.length()-1 && input.at(i)!='|') throw std::runtime_error("Bad absolute value... parentheses? Things? Lines?");
+            else if (i==input.length()-1 && input.at(i)=='|')
+            {
+                i--;
+                continue;
+            }
+            currentToken.push_back(input.at(i));
+        }
+        //Parse root()
+        if(currentToken=="" && input.find("root(",i)==i) for(; i<input.length(); i++)
+        {
+            if(input.at(i)=='r' && !inFunctionCall)
+            {
+                startOfFunction=i;
+                i+=5;
+                nestingLevel++;
+                currentToken.append("root(");
+                inFunctionCall=true;
+                nestingOfFunction=nestingLevel;
+                if(i==input.length()) throw std::runtime_error("Bad function call!");
+            }
+            if(inFunctionCall && nestingLevel==nestingOfFunction && input.at(i)==',' && rootHasTwoArgs==false) //std::cout<<input.substr(startOfFunction,i-startOfFunction+1);
+            {
+                rootHasTwoArgs=true;
+                endOfFirstArg=i;
+                tokens.emplace_back(input.substr(startOfFunction,i-startOfFunction));
+            }
+            else if(inFunctionCall && ((nestingLevel<=nestingOfFunction && input.at(i)==')')||i==input.length()-1) && rootHasTwoArgs==false)
+            {
+                tokens.emplace_back("root,"+input.substr(startOfFunction+5/*char after root(<-*/,i-startOfFunction-4));
+                break;
+            }
+            else if(inFunctionCall && ((nestingLevel<=nestingOfFunction && input.at(i)==')')||i==input.length()-1) && rootHasTwoArgs==true)
+            {
+                tokens.emplace_back("root"+input.substr(endOfFirstArg,i-endOfFirstArg+1));
+                break;
+            }
+            if(input.at(i)==')') nestingLevel--;
+            else if(input.at(i)=='(') nestingLevel++;
+        }
+
+        //Parse log()
+        if(currentToken=="" && input.find("log(",i)==i) for(; i<input.length(); i++)
+        {
+            if(input.at(i)=='l' && !inFunctionCall)
+            {
+                if(input.find("log(", i)==i)
                 {
                     startOfFunction=i;
-                    for(;input.at(i)=='|' && i<input.length()-1;i++)
-                    {
-                        absNestingLevel++;
-                        currentToken.push_back('|');
-                    }
+                    i+=4;
+                    nestingLevel++;
+                    currentToken.append("log(");
                     inFunctionCall=true;
                     nestingOfFunction=nestingLevel;
-                    if(i==input.length()-1) throw std::runtime_error("Bad absolute value... parentheses? Things? Lines?");
+                    if(i==input.length()) throw std::runtime_error("Bad function call!");
                 }
-                if(input.at(i)==')')
-                {
-                    inParentheses--;
-                    nestingLevel--;
-                }
-                else if(input.at(i)=='(')
-                {
-                    inParentheses++;
-                    nestingLevel++;
-                }
-                if(i<input.length() && inParentheses==false && input.at(i)=='|') absNestingLevel--;
-                if(i>startOfFunction+1 && nestingLevel<=0 && absNestingLevel==0 && inParentheses==false && input.at(i)=='|')
-                {
-                    currentToken.push_back(input.at(i));
-                    tokens.emplace_back(currentToken);
-                    currentToken.clear();
-                    break;
-                }
-                else if(i==input.length()-1 && input.at(i)!='|') throw std::runtime_error("Bad absolute value... parentheses? Things? Lines?");
-                else if (i==input.length()-1 && input.at(i)=='|')
-                {
-                    i--;
-                    continue;
-                }
-                currentToken.push_back(input.at(i));
+                else throw std::runtime_error("Bad function name or stray characters!");
             }
-            //Parse root()
-            for(; i<input.length() && functionCallType==functions::ROOT; i++)
+            if(inFunctionCall && nestingLevel==nestingOfFunction && input.at(i)==',' && logHasTwoArgs==false) //std::cout<<input.substr(startOfFunction,i-startOfFunction+1);
             {
-                if(input.at(i)=='r' && !inFunctionCall)
-                {
-                    if(input.find("root(", i)==i)
-                    {
-                        startOfFunction=i;
-                        i+=5;
-                        nestingLevel++;
-                        currentToken.append("root(");
-                        inFunctionCall=true;
-                        nestingOfFunction=nestingLevel;
-                        if(i==input.length()) throw std::runtime_error("Bad function call!");
-                    }
-                    else throw std::runtime_error("Bad function name or stray characters!");
-                }
-                if(inFunctionCall && nestingLevel==nestingOfFunction && input.at(i)==',' && rootHasTwoArgs==false) //std::cout<<input.substr(startOfFunction,i-startOfFunction+1);
-                {
-                    rootHasTwoArgs=true;
-                    endOfFirstArg=i;
-                    tokens.emplace_back(input.substr(startOfFunction,i-startOfFunction));
-                }
-                else if(inFunctionCall && ((nestingLevel<=nestingOfFunction && input.at(i)==')')||i==input.length()-1) && rootHasTwoArgs==false)
-                {
-                    tokens.emplace_back("root,"+input.substr(startOfFunction+5/*char after root(<-*/,i-startOfFunction-4));
-                    break;
-                }
-                else if(inFunctionCall && ((nestingLevel<=nestingOfFunction && input.at(i)==')')||i==input.length()-1) && rootHasTwoArgs==true)
-                {
-                    tokens.emplace_back("root"+input.substr(endOfFirstArg,i-endOfFirstArg+1));
-                    break;
-                }
-                if(input.at(i)==')') nestingLevel--;
-                else if(input.at(i)=='(') nestingLevel++;
+                logHasTwoArgs=true;
+                endOfFirstArg=i;
+                tokens.emplace_back(input.substr(startOfFunction,i-startOfFunction));
             }
-
-            //Parse log()
-            for(; i<input.length() && functionCallType==functions::LOG; i++)
+            else if(inFunctionCall && ((nestingLevel<=nestingOfFunction && input.at(i)==')')||i==input.length()-1) && logHasTwoArgs==false)
             {
-                if(input.at(i)=='l' && !inFunctionCall)
-                {
-                    if(input.find("log(", i)==i)
-                    {
-                        startOfFunction=i;
-                        i+=4;
-                        nestingLevel++;
-                        currentToken.append("log(");
-                        inFunctionCall=true;
-                        nestingOfFunction=nestingLevel;
-                        if(i==input.length()) throw std::runtime_error("Bad function call!");
-                    }
-                    else throw std::runtime_error("Bad function name or stray characters!");
-                }
-                if(inFunctionCall && nestingLevel==nestingOfFunction && input.at(i)==',' && logHasTwoArgs==false) //std::cout<<input.substr(startOfFunction,i-startOfFunction+1);
-                {
-                    logHasTwoArgs=true;
-                    endOfFirstArg=i;
-                    tokens.emplace_back(input.substr(startOfFunction,i-startOfFunction));
-                }
-                else if(inFunctionCall && ((nestingLevel<=nestingOfFunction && input.at(i)==')')||i==input.length()-1) && logHasTwoArgs==false)
-                {
-                    tokens.emplace_back("log,"+input.substr(startOfFunction+4/*char after log(<-*/,i-startOfFunction-3));
-                    break;
-                }
-                else if(inFunctionCall && ((nestingLevel<=nestingOfFunction && input.at(i)==')')||i==input.length()-1) && logHasTwoArgs==true)
-                {
-                    tokens.emplace_back("log"+input.substr(endOfFirstArg,i-endOfFirstArg+1));
-                    break;
-                }
-                if(input.at(i)==')') nestingLevel--;
-                else if(input.at(i)=='(') nestingLevel++;
+                tokens.emplace_back("log,"+input.substr(startOfFunction+4/*char after log(<-*/,i-startOfFunction-3));
+                break;
             }
-
-            //Parse Subexpression
-            for(; i<input.length() && functionCallType==functions::NONE; i++)
+            else if(inFunctionCall && ((nestingLevel<=nestingOfFunction && input.at(i)==')')||i==input.length()-1) && logHasTwoArgs==true)
             {
-                if(input.at(i)==')') nestingLevel--;
-                else if(input.at(i)=='(') nestingLevel++;
-                currentToken.push_back(input.at(i));
-                if(nestingLevel==0 || i==input.length()-1) break;                
+                tokens.emplace_back("log"+input.substr(endOfFirstArg,i-endOfFirstArg+1));
+                break;
             }
+            if(input.at(i)==')') nestingLevel--;
+            else if(input.at(i)=='(') nestingLevel++;
         }
-        else for(; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || (i>0 && std::isdigit(input.at(i-1)) && input.at(i)=='e' && currentToken!="e" && i<input.length()-2 && (input.at(i+1)=='+' || input.at(i+1)=='-') && std::isdigit(input.at(i+2)))); i++)
+
+        //Parse Subexpression
+        if(currentToken=="" && !inFunctionCall && input.at(i)=='(') for(; i<input.length(); i++)
+        {
+            if(input.at(i)==')') nestingLevel--;
+            else if(input.at(i)=='(') nestingLevel++;
+            currentToken.push_back(input.at(i));
+            if(nestingLevel==0 || i==input.length()-1) break;                
+        }
+
+        if(currentToken=="") for(; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || (i>0 && std::isdigit(input.at(i-1)) && input.at(i)=='e' && currentToken!="e" && i<input.length()-2 && (input.at(i+1)=='+' || input.at(i+1)=='-') && std::isdigit(input.at(i+2)))); i++)
         {
             fixOffByOne=true;
             if(i+1<input.length() && (input.at(i)=='e' && (input.at(i+1)=='+' || input.at(i+1)=='-')))
@@ -894,7 +880,8 @@ std::vector<token> getTokens(const std::string &input)
             fixOffByOne=false;
             i--;
         }
-        if(currentToken!="" && currentToken!="root(" && currentToken.find("sin(")!=0 && currentToken.find("cos(")!=0 && currentToken.find("tan(")!=0 && currentToken.find("log(")!=0) tokens.emplace_back(currentToken);
+        if(inFunctionCall) currentToken.clear();
+        if(currentToken!="") tokens.emplace_back(currentToken);
         currentToken.clear();
         inFunctionCall=false;
         rootHasTwoArgs=false;
