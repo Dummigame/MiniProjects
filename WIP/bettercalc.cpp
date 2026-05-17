@@ -108,8 +108,8 @@ class token
         if(isMultiCharUnary(value)) return token_t::MULTICHARUNARY;
         if(isMultiCharBinary(value)) return token_t::MULTICHARBINARY;
 
-        if(isNumber(value)) return token_t::NUMBER;
         if(isConstant(value)) return token_t::CONSTANT;
+        if(isNumber(value)) return token_t::NUMBER;
         else if(isFunction(value)) return token_t::FUNCTION;
         else if(isRootArgRight(value)) return token_t::ROOTARGRIGHT;
         else if(isRootArgLeft(value)) return token_t::ROOTARGLEFT;
@@ -125,12 +125,16 @@ class token
     {
         return input=="pi" 
             || input=="e" 
+            || input=="c" 
+            || input=="G"
+            || input=="H0"
             || input=="tau" 
             || input=="phi" 
             || input=="eul" 
             || input=="rad" 
             || input=="deg" 
             || input=="i" 
+            || input=="inf"
             || input=="ppm"
             || input=="ppb"
             || input=="ppt"
@@ -273,6 +277,10 @@ class token
         if(input=="ppt") return "0.000000000001";
         if(input=="prc") return "0.01";
         if(input=="i") return "nan";
+        if(input=="c") return "299792458";
+        if(input=="G") return "6.6743e-11";
+        if(input=="inf") return "inf";
+        if(input=="H0") return "2.2e-18";
         else return input;
     }
     ///////////////////////////////////////////////
@@ -373,7 +381,7 @@ int main(int argc, char** argv)
             displayHelp();
             return 0;
         }
-        else if(equation.at(0)=='?' || equation.at(0)=='h' || equation.at(0)=='H')
+        else if(equation.at(0)=='?' || equation.at(0)=='h')
         {
             displayHelp();
             return 0;
@@ -435,7 +443,7 @@ int main(int argc, char** argv)
 
         if(equation.length()==0) throw std::runtime_error("Empty input");
         if(equation.at(0)=='q' || equation.at(0)=='Q') break;
-        if(equation.at(0)=='?' || equation.at(0)=='h' || equation.at(0)=='H')
+        if(equation.at(0)=='?' || equation.at(0)=='h')
         {
             displayHelp();
             equation.clear();
@@ -443,7 +451,7 @@ int main(int argc, char** argv)
         }                                 
         passedInAsArg:
 
-        for(uint i{}; i<equation.length(); i++) if(equation.at(i)>='A' && equation.at(i)<='Z') equation.at(i)=equation.at(i)+32;//'X' -> 'x' ToLower
+        for(uint i{}; i<equation.length(); i++) if(equation.at(i)>='A' && equation.at(i)<='Z' && equation.at(i)!='G' && equation.at(i)!='H') equation.at(i)=equation.at(i)+32;//'X' -> 'x' ToLower
         if(equation.find("fish")!=std::string::npos) //Fish.
         {                                   
             std::cout<<"\nfish.\n";         
@@ -663,7 +671,7 @@ void displayHelp()
     "    floor(), ceil(), round(), abs(), ln()\n"<<
     "\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2."<<
     "\nYou may also have an equation graphed if you include at least one instance of x."<<
-    "\nThere are also a few constants available: pi, e, phi, eul(euler's number), tau(2*pi), rad(180/pi) and deg(pi/180, useful for sin() and stuff),prc(1%), ppm, ppb, ppt\n"<<
+    "\nConstants: pi, e, c, G, H0, phi, inf(infinity), eul(euler's number), tau(2*pi), rad(180/pi) and deg(pi/180, useful for sin() and stuff),prc(1%), ppm, ppb, ppt\n"<<
     "\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them."<<
     "\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX or graphing (g/y, y for high zoom)\n\n";
     return;
@@ -675,7 +683,7 @@ bool isValidInput(const char c)
 {
     return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'
             ||c==','||c=='e'||c=='s'||c=='i'||c=='n'||c=='c'||c=='a' ||c=='l'||c=='f'||c=='u'||c=='d'||c=='|'||c=='b'||c=='g'||c=='p'
-            ||c=='u'||c=='h'||c=='m'||c=='%'||c=='k'||c=='['||c==']'||c=='h';
+            ||c=='u'||c=='h'||c=='m'||c=='%'||c=='k'||c=='['||c==']'||c=='h'||c=='G'||c=='H';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -774,6 +782,7 @@ std::vector<token> getTokens(const std::string &input)
         
         //Constants
         else if (input.find("pi",i)==i) {currentToken="pi"; i++;}
+        else if (input.find("inf",i)==i) {currentToken="inf"; i+=2;}
         else if (input.find("prc",i)==i) {currentToken="prc"; i+=2;}
         else if (input.find("ppm",i)==i) {currentToken="ppm"; i+=2;}
         else if (input.find("ppb",i)==i) {currentToken="ppb"; i+=2;}
@@ -783,13 +792,16 @@ std::vector<token> getTokens(const std::string &input)
         else if (input.find("tau",i)==i) {currentToken="tau"; i+=2;}
         else if(input.find("phi",i)==i) {currentToken="phi"; i+=2;}
         else if(input.find("eul", i)==i) {currentToken="eul"; i+=2;}
+        else if (input.find("H0", i)==i) {currentToken="H0"; i++;}
         else if (input.at(i)=='e') currentToken='e';
-        else if (input.at(i)=='i') 
-        {
-            currentToken='i'; //:troll:
-            if(!memed) std::cout<<"\nWhat, did you think this calculator can use complex numbers?\n";
-            memed=true;
-        }
+        else if (input.at(i)=='c') currentToken='c';
+        else if (input.at(i)=='G') currentToken='G';
+        // else if (input.at(i)=='i') 
+        // {
+        //     currentToken='i'; //:troll:
+        //     if(!memed) std::cout<<"\nWhat, did you think this calculator can use complex numbers?\n";
+        //     memed=true;
+        // }
         else if (input.at(i)=='!')
         {
             currentToken='!';
@@ -929,7 +941,7 @@ std::vector<token> getTokens(const std::string &input)
             if(nestingLevel==0 || i==input.length()-1) break;                
         }
 
-        if(currentToken=="") for(; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || input.at(i)=='.' || (i>0 && std::isdigit(input.at(i-1)) && input.at(i)=='e' && currentToken!="e" && i<input.length()-2 && (input.at(i+1)=='+' || input.at(i+1)=='-') && std::isdigit(input.at(i+2)))); i++)
+        if(currentToken=="") for(; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || (i<input.length()-1 && input.at(i)=='.' && std::isdigit(input.at(i+1))) || (i>0 && std::isdigit(input.at(i-1)) && input.at(i)=='e' && currentToken!="e" && i<input.length()-2 && (input.at(i+1)=='+' || input.at(i+1)=='-') && std::isdigit(input.at(i+2)))); i++)
         {
             fixOffByOne=true;
             if(i+1<input.length() && (input.at(i)=='e' && (input.at(i+1)=='+' || input.at(i+1)=='-')))
@@ -1008,6 +1020,8 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
 
 long double calculation(std::vector<token> tokens, const long double xValue)
 {
+    if(tokens.size()==0) return NAN;
+    if(tokens.size()==1 && tokens.at(0).typeCategory()==tokenCategory_t::NUMBER) return tokens.at(0).number(xValue);
     std::ostringstream resultAsOSStream;
     resultAsOSStream.precision(LDBL_DIG);
     long double result{};
