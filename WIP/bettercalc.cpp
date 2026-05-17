@@ -619,7 +619,7 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
             
             //Plot point
             else if((i<length-1&&((points.at(i+1).y)/options.xStep >= height/2-rows)&&(points.at(i).y)/options.xStep<=height/2-rows)||
-                    (std::ceil((points.at(i).y)/options.xStep) == std::ceil(height/2-rows))||
+                    (std::round((points.at(i).y)/options.xStep) == std::round(height/2-rows+options.xStep))||
                     (i>0&&((points.at(i).y)/options.xStep <= height/2-rows)&&(points.at(i-1).y)/options.xStep>=height/2-rows)) graphLine<<'+';
            
             //Draw X axis
