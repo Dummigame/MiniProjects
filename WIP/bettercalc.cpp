@@ -361,6 +361,7 @@ long double evaluateBinary(token&, token&, token&, const long double xValue);
 
 int main(int argc, char** argv)
 {
+    bool firstPass{true};
     options options;
     std::ostringstream resultAsOSStream;
     resultAsOSStream.precision(LDBL_DIG);
@@ -438,11 +439,18 @@ int main(int argc, char** argv)
         std::cout.precision(LDBL_DIG);
         resultAsOSStream.precision(LDBL_DIG);
         if(equation!="") goto passedInAsArg;
-        std::cout << "Type your equation (? for help, q to quit):\n=> ";
+        if(firstPass) std::cout << "Type your equation (? for help, q to quit):\n=> ";
+        else std::cout << "Type your equation:\n=> ";
         std::getline(std::cin, equation);
 
+        if(equation.find("how do i exit vim")!=std::string::npos)
+        {
+            std::cout<<":q\n\n";
+            return 0;
+        }
+
         if(equation.length()==0) throw std::runtime_error("Empty input");
-        if(equation.at(0)=='q' || equation.at(0)=='Q') break;
+        if(equation.at(0)=='q' || equation.at(0)=='Q' || equation.find("exit")!=std::string::npos || equation.find("quit")!=std::string::npos) break;
         if(equation.at(0)=='?' || equation.at(0)=='h')
         {
             displayHelp();
@@ -579,6 +587,7 @@ int main(int argc, char** argv)
         options.xStep=0;
         resultAsOSStream.str("");
         resultAsOSStream.clear();
+        firstPass=false;
         if(passedInAsArg) break;
     }
     return 0;
@@ -670,10 +679,10 @@ void displayHelp()
     "    root(denominator, enumerator), log(base,value)\n"<<
     "    sin(), cos(), tan(), sec(), cosec(), cot(), arcsin(), arccos(), arctan(), arcsec(), arccosec(), arccot()\n"<<
     "    sinh(), cosh(), tanh(), sech(), cosech(), coth(), arcsinh(), arccosh(), arctanh(), arcsech(), arccosech(), arccoth()\n"<<
-    "    floor(), ceil(), round(), abs(), ln()\n"<<
+    "    floor(), ceil(), round(), abs(), ln()"<<
+    "\nConstants: pi, e, c, G, H0, phi, inf(infinity), eul(euler's number), tau(2*pi), rad(180/pi) and deg(pi/180, useful for sin() and stuff),prc(1%), ppm, ppb, ppt\n"<<
     "\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2."<<
     "\nYou may also have an equation graphed if you include at least one instance of x."<<
-    "\nConstants: pi, e, c, G, H0, phi, inf(infinity), eul(euler's number), tau(2*pi), rad(180/pi) and deg(pi/180, useful for sin() and stuff),prc(1%), ppm, ppb, ppt\n"<<
     "\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them."<<
     "\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX or graphing (g/y, y for high zoom)\n\n";
     return;
@@ -786,6 +795,7 @@ std::vector<token> getTokens(const std::string &input)
         else if (input.find("pi",i)==i) {currentToken="pi"; i++;}
         else if (input.find("inf",i)==i) {currentToken="inf"; i+=2;}
         else if (input.find("prc",i)==i) {currentToken="prc"; i+=2;}
+        else if (input.find("ppc",i)==i) {currentToken="prc"; i+=2;} //Alias
         else if (input.find("ppm",i)==i) {currentToken="ppm"; i+=2;}
         else if (input.find("ppb",i)==i) {currentToken="ppb"; i+=2;}
         else if (input.find("ppt",i)==i) {currentToken="ppt"; i+=2;}
@@ -798,12 +808,6 @@ std::vector<token> getTokens(const std::string &input)
         else if (input.at(i)=='e') currentToken='e';
         else if (input.at(i)=='c') currentToken='c';
         else if (input.at(i)=='G') currentToken='G';
-        // else if (input.at(i)=='i') 
-        // {
-        //     currentToken='i'; //:troll:
-        //     if(!memed) std::cout<<"\nWhat, did you think this calculator can use complex numbers?\n";
-        //     memed=true;
-        // }
         else if (input.at(i)=='!')
         {
             currentToken='!';
@@ -850,18 +854,15 @@ std::vector<token> getTokens(const std::string &input)
                 nestingLevel++;
             }
             if(i<input.length() && inParentheses==false && input.at(i)=='|') absNestingLevel--;
-            if(i>startOfFunction+1 && nestingLevel<=0 && absNestingLevel==0 && inParentheses==false && input.at(i)=='|')
+            if(i>startOfFunction+1 && nestingLevel<=0 && absNestingLevel==0 && inParentheses==false && input.at(i)=='|' || 
+               (i==input.length()-1 && input.at(i)=='|')) 
             {
                 currentToken.push_back(input.at(i));
                 tokens.emplace_back(currentToken);
                 break;
             }
             else if(i==input.length()-1 && input.at(i)!='|') throw std::runtime_error("Bad absolute value... parentheses? Things? Lines?");
-            else if (i==input.length()-1 && input.at(i)=='|')
-            {
-                i--;
-                continue;
-            }
+
             currentToken.push_back(input.at(i));
         }
         //Parse root()
