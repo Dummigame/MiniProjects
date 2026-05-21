@@ -97,7 +97,7 @@ class token
 
     token_t determineType(std::string &value)
     {
-        if(value.length()==0) throw std::runtime_error("Empty argument!");
+        if(value.length()==0) return token_t::INVALID;
 
         if(value.length()==1)
         {
@@ -298,12 +298,7 @@ class token
     token(std::string value)
     {
         tokenType = determineType(value);
-        if(tokenType==token_t::INVALID)
-        {
-            std::cerr<<"Bad Token: "<<value<<'\n';
-            throw std::runtime_error("tokenType==tokenType_t::INVALID");
-        }
-        else if(tokenType==token_t::CONSTANT)
+        if(tokenType==token_t::CONSTANT)
         {
             this->tokenValue=replaceConstants(value);
         }
@@ -344,10 +339,10 @@ class token
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<token> getTokens(const std::string&);
+std::vector<token> getTokens(const std::string&, const std::string &previousResult="nan");
 void getVariableArgs(std::vector<token>&, options&);
 void graph(const std::vector<point>&points, const long double yMin, const long double yMax, const uint xClosestToZeroIndex, const options &options);
-long double calculation(std::vector<token>, const long double xValue);
+long double calculation(std::vector<token>, const long double xValue,const bool resetInvalid=false);
 long double evaluateAbs(token &arg, const long double xValue);
 
 long double evaluateRoot(token denominator, token &enumerator, const long double xValue);
@@ -361,6 +356,8 @@ long double evaluateBinary(token&, token&, token&, const long double xValue);
 
 int main(int argc, char** argv)
 {
+    std::string resultHistory;
+    std::string previousResult{"nan"};
     bool firstPass{true};
     options options;
     std::ostringstream resultAsOSStream;
@@ -416,9 +413,9 @@ int main(int argc, char** argv)
         {
             
             if(isNumber(argv[2])) options.xMin=std::stold(argv[2]);
-            else throw std::runtime_error("You did not enter a number");
+            else {std::cerr<<"\nYou did not enter a number\n"; return 0;}
             if(isNumber(argv[3])) options.xMax=std::stold(argv[3]);
-            else throw std::runtime_error("You did not enter a number");
+            else {std::cerr<<"\nYou did not enter a number\n"; return 0;}
             if(argv[4][0]=='y' || argv[4][0]=='Y' || argv[4][0]=='g' || argv[4][0]=='G')
             {
                 options.graph=true;
@@ -426,15 +423,15 @@ int main(int argc, char** argv)
                 else options.xStep=0.05;
             }
             else if(isNumber(argv[4])) options.xStep=std::stold(argv[4]);
-            else throw std::runtime_error("You did not enter a number");
+            else {std::cerr<<"\nYou did not enter a number\n"; return 0;}
             
-            if(options.xMin>=options.xMax) throw std::runtime_error("Invalid range!");
-            if(options.xMax-options.xMin>options.xStep*1000) throw std::runtime_error("Too many calculations requested!");
+            if(options.xMin>=options.xMax) {std::cerr<<"\nInvalid range\n"; return 0;}
+            if(options.xMax-options.xMin>options.xStep*1000) {std::cerr<<"\nToo many calculations requested\n"; return 0;}
         }
-        else throw std::runtime_error("Included variable but did not specify all of the following: min, max, step/graphing(g or y (close zoom))");
+        else {std::cerr<<"\nIncluded variable but did not specify all of the following: min, max, step/graphing(g or y (close zoom))n"; return 0;}
     }
 
-    while(true)
+    while(!std::cin.eof())
     {
         std::cout.precision(LDBL_DIG);
         resultAsOSStream.precision(LDBL_DIG);
@@ -443,15 +440,15 @@ int main(int argc, char** argv)
         else std::cout << "Type your equation:\n=> ";
         std::getline(std::cin, equation);
 
-        if(equation.find("how do i exit vim")!=std::string::npos)
+        if(equation.find("how do i exit vim")!=std::string::npos||equation.find("how to exit vim")!=std::string::npos)
         {
             std::cout<<":q\n\n";
             return 0;
         }
 
-        if(equation.length()==0) throw std::runtime_error("Empty input");
-        if(equation.at(0)=='q' || equation.at(0)=='Q' || equation.find("exit")!=std::string::npos || equation.find("quit")!=std::string::npos) break;
-        if(equation.at(0)=='?' || equation.at(0)=='h')
+        if(equation.length()==0) continue;
+        if(equation.at(0)=='q' || equation.at(0)=='Q' || std::cin.eof() || equation.find("exit")!=std::string::npos || equation.find("quit")!=std::string::npos) break;
+        if(equation.at(0)=='?')
         {
             displayHelp();
             equation.clear();
@@ -460,6 +457,14 @@ int main(int argc, char** argv)
         passedInAsArg:
 
         for(uint i{}; i<equation.length(); i++) if(equation.at(i)>='A' && equation.at(i)<='Z' && equation.at(i)!='G' && equation.at(i)!='H') equation.at(i)=equation.at(i)+32;//'X' -> 'x' ToLower
+        
+        if(equation.at(0)=='h'||equation.find("hist")!=std::string::npos)
+        {
+            if(resultHistory!="") std::cout<<"\nHistory:"<<resultHistory<<"\n\n"; 
+            equation.clear();
+            continue;
+        }
+        
         if(equation.find("fish")!=std::string::npos) //Fish.
         {                                   
             std::cout<<"\nfish.\n";         
@@ -477,6 +482,7 @@ int main(int argc, char** argv)
             {
                 if(equation.at(i)=='[') equation.at(i)='('; //Cheating
                 else if(equation.at(i)==']') equation.at(i)=')';
+                else if(equation.at(i)==';') equation.at(i)=',';
             }
         }
         int parenthesesImbalance{};
@@ -486,7 +492,7 @@ int main(int argc, char** argv)
             if(equation.at(i)=='|') absValueLineCount++;
             if(equation.at(i)=='(') parenthesesImbalance++;
             else if(equation.at(i)==')') parenthesesImbalance--;
-            if(/*(equation.length()==i+1 && parenthesesImbalance!=0) ||*/ parenthesesImbalance<0 || (equation.length()==i+1 && absValueLineCount%2!=0))
+            if(parenthesesImbalance<0 || (equation.length()==i+1 && absValueLineCount%2!=0))
             {
                 std::cerr<<"\nParentheses are not balanced!\n\n";
                 equation.clear();
@@ -495,28 +501,36 @@ int main(int argc, char** argv)
 
         if(absValueLineCount%2!=0||parenthesesImbalance<0) continue;
         
-        if(equation.length()==0) throw std::runtime_error("No valid input");
-        std::vector<token> tokens = getTokens(equation);
+        if(equation.length()==0)
+        {
+            std::cerr<<"\nNo valid input\n\n";
+            equation.clear();
+            continue;
+        }
+        std::vector<token> tokens = getTokens(equation,previousResult);
         if(!passedInAsArg)
         {
             getVariableArgs(tokens, options);
         }
         if(options.xMin==options.xMax) //No x found
         {
-            resultAsOSStream<< calculation(tokens, NAN);
+            resultAsOSStream<<calculation(tokens, NAN);
 
             if(resultAsOSStream.str().find("nan")!=std::string::npos)
             {
+                previousResult="nan";
                 resultAsOSStream.str("");
                 resultAsOSStream.clear();
                 resultAsOSStream<<"Not a Number";
             }
-            if(resultAsOSStream.str()=="-0")
+            else if(resultAsOSStream.str()=="-0")
             {
+                previousResult='0';
                 resultAsOSStream.str("");
                 resultAsOSStream.clear();
                 resultAsOSStream<<"0";               
             }
+            else previousResult=resultAsOSStream.str();
 
             for(unsigned long int i{}; i<resultAsOSStream.str().length()+2; i++) std::cout <<"=";
             std::cout << "\n " << resultAsOSStream.str() << '\n';
@@ -534,16 +548,17 @@ int main(int argc, char** argv)
                 resultAsOSStream<<calculation(tokens, xValue);
                 if(resultAsOSStream.str().find("nan")!=std::string::npos)
                 {
-                    resultAsOSStream.str("");
-                    resultAsOSStream.clear();
-                    resultAsOSStream<<"Not a Number";
+                    previousResult="nan";
+                    continue;
                 }
-                if(resultAsOSStream.str()=="-0")
+                else if(resultAsOSStream.str()=="-0")
                 {
-                    resultAsOSStream.str("");
-                    resultAsOSStream.clear();
-                    resultAsOSStream<<"0";               
+                    resultAsOSStream.str()="";
+                    resultAsOSStream.clear();       
+                    resultAsOSStream<<"0";      
+                    previousResult="0"; 
                 }
+                else previousResult=resultAsOSStream.str();
                 std::cout<<"\nFor x = " << xValue << ": " << resultAsOSStream.str();
                 resultAsOSStream.str("");
                 resultAsOSStream.clear();
@@ -578,16 +593,21 @@ int main(int argc, char** argv)
             }
             graph(points,smallestY,largestY,xClosestToZeroIndex,options);        
         }
+        cleanUp:
         std::cout<<"\n\n";
+
+        if(options.xMin==options.xMax && tokens.size()>1) resultHistory+='\n'+equation+" = "+previousResult;
+
+        resultAsOSStream.str("");
+        resultAsOSStream.clear();
         equation.clear();
         tokens.clear();
         options.graph=false;
         options.xMax=0;
         options.xMin=0;
         options.xStep=0;
-        resultAsOSStream.str("");
-        resultAsOSStream.clear();
         firstPass=false;
+        calculation(std::vector<token>(),NAN,true); //Reset seenInvalid in calculation, so if an invalid expression is passed on the next iteration, it prints the error text
         if(passedInAsArg) break;
     }
     return 0;
@@ -599,9 +619,9 @@ int main(int argc, char** argv)
 //This function is ugly.
 void graph(const std::vector<point>&points, const long double yMin, const long double yMax, const uint xClosestToZeroIndex, const options &options)
 {
+    if(yMin>yMax) return;
     long double xRange=points.size();
     long double yRange=(std::abs(yMax)+std::abs(yMin))/options.xStep+std::abs(yMin*5); //Absurd line
-
 
     long double height=yRange+(1/(yRange+0.5))*700; //Trust
     if(height>yRange*3) height=yRange+15;
@@ -675,7 +695,7 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
 
 void displayHelp()
 {
-    std::cout<<"\nThis calculator accepts an equation using numbers, +, -, *, /, ^ (or **), x, !, !!, % (or mod), npk, nck, |expr|, (expr) or [expr] and these functions:\n"<<
+    std::cout<<"\nThis calculator accepts an equation using numbers, ans(previous result) +, -, *, /, ^ (or **), x, !, !!, % (or mod), npk, nck, |expr|, (expr) or [expr] and these functions:\n"<<
     "    root(denominator, enumerator), log(base,value)\n"<<
     "    sin(), cos(), tan(), sec(), cosec(), cot(), arcsin(), arccos(), arctan(), arcsec(), arccosec(), arccot()\n"<<
     "    sinh(), cosh(), tanh(), sech(), cosech(), coth(), arcsinh(), arccosh(), arctanh(), arcsech(), arccosech(), arccoth()\n"<<
@@ -694,14 +714,16 @@ bool isValidInput(const char c)
 {
     return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'
             ||c==','||c=='e'||c=='s'||c=='i'||c=='n'||c=='c'||c=='a' ||c=='l'||c=='f'||c=='u'||c=='d'||c=='|'||c=='b'||c=='g'||c=='p'
-            ||c=='u'||c=='h'||c=='m'||c=='%'||c=='k'||c=='['||c==']'||c=='h'||c=='G'||c=='H';
+            ||c=='u'||c=='h'||c=='m'||c=='%'||c=='k'||c=='['||c==']'||c=='h'||c=='G'||c=='H'||c==';';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-std::vector<token> getTokens(const std::string &input)
+std::vector<token> getTokens(const std::string &input, const std::string& previousResult)
 {
+    static std::string lastSeenResult{};
+    if(previousResult!="nan") lastSeenResult=previousResult;
     int nestingLevel{};
     static bool memed{};
     int absNestingLevel{};
@@ -726,6 +748,7 @@ std::vector<token> getTokens(const std::string &input)
         else if (input.find("mod",i)==i) {currentToken="mod"; i+=2;}
         else if (input.find("npk",i)==i) {currentToken="npk"; i+=2;}
         else if (input.find("nck",i)==i) {currentToken="nck"; i+=2;}
+        else if (input.find("ans",i)==i) {currentToken=lastSeenResult; i+=2;}
 
         //Functions
 
@@ -868,15 +891,15 @@ std::vector<token> getTokens(const std::string &input)
         //Parse root()
         if(currentToken=="" && input.find("root(",i)==i) for(; i<input.length(); i++)
         {
-            if(input.at(i)=='r' && !inFunctionCall)
+            if(!inFunctionCall)
             {
+                inFunctionCall=true;
                 startOfFunction=i;
                 i+=5;
                 nestingLevel++;
                 currentToken.append("root(");
-                inFunctionCall=true;
                 nestingOfFunction=nestingLevel;
-                if(i==input.length()) throw std::runtime_error("Bad function call!");
+                if(i==input.length()) continue;
             }
             if(inFunctionCall && nestingLevel==nestingOfFunction && input.at(i)==',' && rootHasTwoArgs==false) //std::cout<<input.substr(startOfFunction,i-startOfFunction+1);
             {
@@ -901,19 +924,19 @@ std::vector<token> getTokens(const std::string &input)
         //Parse log()
         if(currentToken=="" && input.find("log(",i)==i) for(; i<input.length(); i++)
         {
-            if(input.at(i)=='l' && !inFunctionCall)
+            if(!inFunctionCall)
             {
                 if(input.find("log(", i)==i)
                 {
+                    inFunctionCall=true;
                     startOfFunction=i;
                     i+=4;
                     nestingLevel++;
                     currentToken.append("log(");
-                    inFunctionCall=true;
                     nestingOfFunction=nestingLevel;
-                    if(i==input.length()) throw std::runtime_error("Bad function call!");
+                    if(i==input.length()) continue;
                 }
-                else throw std::runtime_error("Bad function name or stray characters!");
+                else continue;
             }
             if(inFunctionCall && nestingLevel==nestingOfFunction && input.at(i)==',' && logHasTwoArgs==false) //std::cout<<input.substr(startOfFunction,i-startOfFunction+1);
             {
@@ -986,12 +1009,20 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
     std::cout << "\nSpecify variable minimum: ";
     std::cin>>input;
     if(isNumber(input)) options.xMin=std::stold(input);
-    else throw std::runtime_error("You did not enter a number");
+    else 
+    {
+        std::cerr<<"\nYou did not enter a number\n";
+        options.xMin=1;
+    }
 
     std::cout << "\nSpecify variable maximum: ";
     std::cin>>input;
     if(isNumber(input)) options.xMax=std::stold(input);
-    else throw std::runtime_error("You did not enter a number");
+    else 
+    {
+        std::cerr<<"\nYou did not enter a number\n";
+        options.xMax=1;
+    }
     
     std::cout << "\nGraph? y/n: ";
     std::cin>>input;
@@ -1009,20 +1040,30 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
         std::cout << "\nSpecify variable increment/step: ";
         std::cin>>input;
         if(isNumber(input)) options.xStep=std::stold(input);
-        else throw std::runtime_error("You did not enter a number");
+        else 
+        {
+            std::cerr<<"\nYou did not enter a number\n";
+            options.xStep=1;
+        }
     }
 
 
-    if(options.xMin>=options.xMax) throw std::runtime_error("Invalid range!");
-    if(options.xMax-options.xMin>options.xStep*1000) throw std::runtime_error("Too many calculations requested!");
+    if(options.xMin>=options.xMax) options.xMax=options.xMin+0.01;
+    if(options.xMax-options.xMin>options.xStep*1000) 
+    {
+        options.xMax=options.xMin+options.xStep*1000;
+        if(!options.graph) std::cerr<<"\nToo many calculations requested!\n";
+    }
     std::cin.ignore();
     return;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double calculation(std::vector<token> tokens, const long double xValue)
+long double calculation(std::vector<token> tokens, const long double xValue, const bool resetInvalid)
 {
+    static bool invalidExpressionSeen{};
+    if(resetInvalid) invalidExpressionSeen=false;
     if(tokens.size()==0) return NAN;
     if(tokens.size()==1 && tokens.at(0).typeCategory()==tokenCategory_t::NUMBER) return tokens.at(0).number(xValue);
     std::ostringstream resultAsOSStream;
@@ -1214,8 +1255,9 @@ long double calculation(std::vector<token> tokens, const long double xValue)
     }
     
     if(tokens.size()==1 && (tokens.at(0).type()==token_t::NUMBER|| tokens.at(0).type()==token_t::CONSTANT)) return std::stold(tokens.at(0).value());
-    else throw std::runtime_error("Malformed expression!");
-    return result;
+    else if(!invalidExpressionSeen)std::cerr<<"\nExpression could not be evaluated\n"; //throw std::runtime_error("Malformed expression!");
+    invalidExpressionSeen=true;
+    return NAN;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
