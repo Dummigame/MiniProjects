@@ -428,7 +428,7 @@ int main(int argc, char** argv)
             if(options.xMin>=options.xMax) {std::cerr<<"\nInvalid range\n"; return 0;}
             if(options.xMax-options.xMin>options.xStep*1000) {std::cerr<<"\nToo many calculations requested\n"; return 0;}
         }
-        else {std::cerr<<"\nIncluded variable but did not specify all of the following: min, max, step/graphing(g or y (close zoom))n"; return 0;}
+        else {std::cerr<<"\nIncluded variable but did not specify all of the following: min, max, step/graphing(g or y (close zoom))\n"; return 0;}
     }
 
     while(!std::cin.eof())
@@ -447,7 +447,7 @@ int main(int argc, char** argv)
         }
 
         if(equation.length()==0) continue;
-        if(equation.at(0)=='q' || equation.at(0)=='Q' || std::cin.eof() || equation.find("exit")!=std::string::npos || equation.find("quit")!=std::string::npos) break;
+        if(equation.at(0)=='q' || equation.at(0)=='Q' || equation.find("exit")!=std::string::npos || equation.find("quit")!=std::string::npos) break;
         if(equation.at(0)=='?')
         {
             displayHelp();
@@ -553,7 +553,7 @@ int main(int argc, char** argv)
                 }
                 else if(resultAsOSStream.str()=="-0")
                 {
-                    resultAsOSStream.str()="";
+                    resultAsOSStream.str("");
                     resultAsOSStream.clear();       
                     resultAsOSStream<<"0";      
                     previousResult="0"; 
@@ -593,7 +593,6 @@ int main(int argc, char** argv)
             }
             graph(points,smallestY,largestY,xClosestToZeroIndex,options);        
         }
-        cleanUp:
         std::cout<<"\n\n";
 
         if(options.xMin==options.xMax && tokens.size()>1) resultHistory+='\n'+equation+" = "+previousResult;
@@ -1072,6 +1071,9 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
 
     for(uint i{1}; i<tokens.size(); i++)
     {
+        if(tokens.at(i).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).type()==token_t::UNARYOP && tokens.at(i-1).value()!="-" || tokens.at(i-1).type()==token_t::MULTICHARUNARY))
+            tokens.emplace(tokens.begin()+i++, token("*"));
+        if(i==tokens.size()) break;
         if((tokens.at(i).type()==token_t::VARIABLE||tokens.at(i).type()==token_t::CONSTANT) && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
             tokens.emplace(tokens.begin()+i++, token("*"));
         if(i==tokens.size()) break;
@@ -1328,7 +1330,7 @@ long double evaluateUnary(token &numberString, token &operation, const long doub
 {
     long double number=numberString.number(xValue);
     long double result{1};
-    if(operation.value()=="-") return number*-1;
+    if(operation.value()=="-") return -number;
 
     if(operation.value()=="sin") return std::sin(std::fmod(number,2*M_PI));
     if(operation.value()=="cos") return std::cos(std::fmod(number,2*M_PI));
@@ -1369,13 +1371,18 @@ long double evaluateUnary(token &numberString, token &operation, const long doub
     if(operation.value()=="ln") return std::log(number);
 
     if(operation.value()=="!!")
-        for(int i{static_cast<int>(std::round(number))%2+2}; i<static_cast<int>(std::round(number))+1; i+=2)
+    {
+        if(number<0) return NAN;
+        number=std::round(number);
+        for(long double i{std::fmod(number, 2)+2}; i<number+1; i+=2)
         {
-            uint numberAsInt{static_cast<uint>(std::round(number))};
-            if(numberAsInt==0) return 1.0;
-            if(numberAsInt<=3) return numberAsInt;
+            if(number>3209) return INFINITY;
+            if(number==0) return 1.0;
             result*=i;
         }
+        if(number<=3) return number;
+    }
+        //5!!=15 6!!=48
     else if(operation.value()=="!")
         {
             result=std::tgamma(number+1);
