@@ -138,7 +138,8 @@ class token
             || input=="ppm"
             || input=="ppb"
             || input=="ppt"
-            || input=="prc";
+            || input=="prc"
+            || input=="me";
     }
 
     static bool isBinaryOp(const char c)
@@ -281,6 +282,7 @@ class token
         if(input=="G") return "6.6743e-11";
         if(input=="inf") return "inf";
         if(input=="H0") return "2.2e-18";
+        if(input=="me") return "5.9722e+24";
         else return input;
     }
     ///////////////////////////////////////////////
@@ -595,7 +597,7 @@ int main(int argc, char** argv)
         }
         std::cout<<"\n\n";
 
-        if(options.xMin==options.xMax && tokens.size()>1) resultHistory+='\n'+equation+" = "+previousResult;
+        if(options.xMin==options.xMax && tokens.size()) resultHistory+='\n'+equation+" = "+previousResult;
 
         resultAsOSStream.str("");
         resultAsOSStream.clear();
@@ -699,9 +701,9 @@ void displayHelp()
     "    sin(), cos(), tan(), sec(), cosec(), cot(), arcsin(), arccos(), arctan(), arcsec(), arccosec(), arccot()\n"<<
     "    sinh(), cosh(), tanh(), sech(), cosech(), coth(), arcsinh(), arccosh(), arctanh(), arcsech(), arccosech(), arccoth()\n"<<
     "    floor(), ceil(), round(), abs(), ln()"<<
-    "\nConstants: pi, e, c, G, H0, phi, inf(infinity), eul(euler's number), tau(2*pi), rad(180/pi) and deg(pi/180, useful for sin() and stuff),prc(1%), ppm, ppb, ppt\n"<<
+    "\nConstants: pi, e, c, G, me, H0, phi, inf, eul(Euler-Mascheroni), tau(2*pi), rad(180/pi) and deg(pi/180, useful for sin() and stuff),prc(1%), ppm, ppb, ppt, prc"<<
+    "\nYou may also have an equation graphed if you include at least one instance of x. Enter \"h\" for a calculation history.\n"<<
     "\nExample: 3+root(2,1+3) = 5\nroot() may be called with one argument, defaulting to square root. Example: root(4) is 2."<<
-    "\nYou may also have an equation graphed if you include at least one instance of x."<<
     "\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them."<<
     "\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX or graphing (g/y, y for high zoom)\n\n";
     return;
@@ -762,6 +764,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
         else if (input.find("arcsech",i)==i) {currentToken="asech"; i+=6;} //Alias
         else if (input.find("arccsch",i)==i) {currentToken="acsch"; i+=6;} //Alias
         else if (input.find("arccosech",i)==i) {currentToken="acsch"; i+=8;} //Alias
+        else if (input.find("arccosecanth",i)==i) {currentToken="acsch"; i+=11;} //Alias
         else if (input.find("acosech",i)==i) {currentToken="acsch"; i+=6;} //Alias
         else if (input.find("arccoth",i)==i) {currentToken="acoth"; i+=6;} //Alias
         else if (input.find("arcsinh",i)==i) {currentToken="asinh"; i+=6;} //Alias
@@ -827,6 +830,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
         else if(input.find("phi",i)==i) {currentToken="phi"; i+=2;}
         else if(input.find("eul", i)==i) {currentToken="eul"; i+=2;}
         else if (input.find("H0", i)==i) {currentToken="H0"; i++;}
+        else if (input.find("me", i)==i) {currentToken="me"; i++;}
         else if (input.at(i)=='e') currentToken='e';
         else if (input.at(i)=='c') currentToken='c';
         else if (input.at(i)=='G') currentToken='G';
