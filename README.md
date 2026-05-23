@@ -4,7 +4,7 @@ This repo contains some small files I work on for a bit at a time, potentially e
 
 <img src="/Assets/graphnew.png" height="75%" width="75%">
 
-A graph drawn by 'bettercalc.cpp'. Yes, drawing graphs in the terminal... although this is just plotting points, moreso.
+A graph drawn by 'bettercalc.cpp'. Yes, drawing graphs in the terminal...
 
 
 There is no large goal behind this,

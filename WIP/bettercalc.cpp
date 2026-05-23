@@ -28,7 +28,6 @@ enum pass
     FUNCTIONS,
     UNARYMINUS,
     MULTIPLICATION,
-    MODULUS,
     ADDITION
 };
 
