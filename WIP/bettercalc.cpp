@@ -1011,7 +1011,7 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
 
     std::cout << "\nSpecify variable minimum: ";
     std::cin>>input;
-    if(isNumber(input)) options.xMin=std::stold(input);
+    if(!std::cin.eof() && isNumber(input)) options.xMin=std::stold(input);
     else 
     {
         std::cerr<<"\nYou did not enter a number\n";
@@ -1020,7 +1020,7 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
 
     std::cout << "\nSpecify variable maximum: ";
     std::cin>>input;
-    if(isNumber(input)) options.xMax=std::stold(input);
+    if(!std::cin.eof() && isNumber(input)) options.xMax=std::stold(input);
     else 
     {
         std::cerr<<"\nYou did not enter a number\n";
@@ -1029,12 +1029,12 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
     
     std::cout << "\nGraph? y/n: ";
     std::cin>>input;
-    if(input.at(0)=='y' || input.at(0)=='Y')
+    if(!std::cin.eof() && input.at(0)=='y' || input.at(0)=='Y')
     {
         options.graph=true;
         std::cout<<"\nHigh zoom? Use small ranges with this. y/n: ";
         std::cin>>input;
-        if(input.at(0)=='y' || input.at(0)=='Y') options.xStep=0.05;
+        if(!std::cin.eof() && input.at(0)=='y' || input.at(0)=='Y') options.xStep=0.05;
         else options.xStep=0.2;
     }
 
@@ -1042,7 +1042,7 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
     {
         std::cout << "\nSpecify variable increment/step: ";
         std::cin>>input;
-        if(isNumber(input)) options.xStep=std::stold(input);
+        if(!std::cin.eof() && isNumber(input)) options.xStep=std::stold(input);
         else 
         {
             std::cerr<<"\nYou did not enter a number\n";
