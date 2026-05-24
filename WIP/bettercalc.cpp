@@ -252,8 +252,7 @@ class token
     ///////////////////////////////////////////////
     static bool isSubexpr(std::string &input)
     {
-        if(input.length()<2) return false;
-        if(input.find(')')!=std::string::npos && input.length()<3) return false;
+        if(input.find(')')!=std::string::npos && input.length()<2) return false;
         if(input.at(0)=='(')
         {
             input.erase(0, 1);
@@ -437,6 +436,7 @@ int main(int argc, char** argv)
         if(firstPass) std::cout << "Type your equation (? for help, q to quit):\n=> ";
         else std::cout << "Type your equation:\n=> ";
         std::getline(std::cin, equation);
+        std::cout<<'\n';
 
         if(equation.find("how do i exit vim")!=std::string::npos||equation.find("how to exit vim")!=std::string::npos)
         {
@@ -1070,8 +1070,9 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
 {
     static bool invalidExpressionSeen{};
     if(resetInvalid) invalidExpressionSeen=false;
-    if(tokens.size()==0) return NAN;
+    if(tokens.size()==0) return 0;
     if(tokens.size()==1 && tokens.at(0).typeCategory()==tokenCategory_t::NUMBER) return tokens.at(0).number(xValue);
+    if(tokens.size()==1 && tokens.at(0).type()==token_t::INVALID) return NAN;
     std::ostringstream resultAsOSStream;
     resultAsOSStream.precision(LDBL_DIG);
 
@@ -1099,6 +1100,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
             tokens.emplace(tokens.begin()+i++, token("*"));
         if((tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR) && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR&& tokens.at(i).typeCategory()!=tokenCategory_t::SUBEXPR&&tokens.at(i).type()!=token_t::ROOTARGRIGHT&&tokens.at(i).type()!=token_t::LOGARGRIGHT&&tokens.at(i).type()!=token_t::FUNCTION)
             tokens.emplace(tokens.begin()+i++, token("*"));
+        if(tokens.at(i).type()==token_t::INVALID) return NAN;
     }
 
     for(uint i{1}; i<tokens.size(); i++)
@@ -1108,8 +1110,9 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
             tokens.erase(tokens.begin()+i);
         }
     }
-
-    for(long unsigned int pass{}; pass<=ADDITION; pass++)
+    long unsigned int pass{};
+    long unsigned int failedPass{ADDITION};
+    for(; pass<=ADDITION; pass++)
     {
         for(int i{}; i<tokens.size(); i++)
         {
@@ -1156,7 +1159,14 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
             }
             else if(pass==UNARYOPS)
             {
-                if(i==0) continue;
+                if(i==0)
+                {
+                    for(uint j{}; j<tokens.size(); j++)
+                    {
+                        if(tokens.at(j).type()==token_t::SUBEXPR) failedPass=SUBEXPRESSIONS;
+                    }
+                    continue;
+                }
                 if((tokens.at(i).type()==token_t::UNARYOP || tokens.at(i).type()==token_t::MULTICHARUNARY) && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
                 {
                     long double evaluatedUnary=evaluateUnary(tokens.at(i-1), tokens.at(i), xValue);
@@ -1171,6 +1181,12 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
             else if(pass==EXPONENTIATION)
             {
                 if(i==0)
+                {
+                    for(uint j{}; j<tokens.size(); j++)
+                    {
+                        if(tokens.at(j).type()==token_t::UNARYOP && failedPass==ADDITION) failedPass=UNARYOPS;
+                    }
+                    
                     for(i=tokens.size()-1; i>0; i--)
                     {
                         if(i-2<tokens.size())
@@ -1197,9 +1213,15 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
                             }
                         }
                     }
+                }
             }
             else if (pass==FUNCTIONS)
             {
+                if(i==0)
+                    for(uint j{}; j<tokens.size(); j++)
+                    {
+                        if(tokens.at(j).value()=="^" && failedPass==ADDITION) failedPass=EXPONENTIATION;
+                    }
                 if(i!=0&&(tokens.at(i-1).type()==token_t::FUNCTION) && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
                     long double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
@@ -1213,6 +1235,11 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
             }
             else if (pass==UNARYMINUS)
             {
+                if(i==0)
+                    for(uint j{}; j<tokens.size(); j++)
+                    {
+                        if(tokens.at(j).type()==token_t::FUNCTION && failedPass==ADDITION) failedPass=FUNCTIONS;
+                    }
                 if(i!=0&&(tokens.at(i-1).value()=="-") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
                     long double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
@@ -1226,6 +1253,11 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
             }
             else if(pass==MULTIPLICATION)
             {
+                if(i==0)
+                    for(uint j{}; j<tokens.size(); j++)
+                    {
+                        if(tokens.at(j).value()=="-" && failedPass==ADDITION) failedPass=UNARYMINUS;
+                    }
                 if(i<=1) continue;
                 if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="*" || tokens.at(i-1).value()=="/" || tokens.at(i-1).value()=="npk" || tokens.at(i-1).value()=="nck" || tokens.at(i-1).value()=="mod" || tokens.at(i-1).value()=="%") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
@@ -1241,6 +1273,11 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
             }
             else if(pass==ADDITION)
             {
+                if(i==0)
+                    for(uint j{}; j<tokens.size(); j++)
+                    {
+                        if((tokens.at(j).value()=="*"||tokens.at(j).value()=="%"||tokens.at(j).value()=="mod"||tokens.at(j).value()=="npk"||tokens.at(j).value()=="nck"||tokens.at(j).value()=="/") && failedPass==ADDITION) failedPass=MULTIPLICATION;
+                    }
                 if(i<=1) continue;
                 if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="+" || tokens.at(i-1).value()=="-") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
@@ -1259,8 +1296,28 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
     if(tokens.size()==1 && tokens.at(0).type()==token_t::VARIABLE) return xValue;
     
     if(tokens.size()==1 && (tokens.at(0).type()==token_t::NUMBER|| tokens.at(0).type()==token_t::CONSTANT)) return std::stold(tokens.at(0).value());
-    else if(!invalidExpressionSeen)std::cerr<<"\nExpression could not be evaluated\n";
-    invalidExpressionSeen=true;
+    else if(!invalidExpressionSeen)
+    {
+        std::cerr<<"\nExpression could not be evaluated\nLeftover tokens: ";
+        for(uint i{}; i<tokens.size(); std::cerr<<tokens.at(i++).value());
+        if(tokens.size()>0)
+        {
+            std::cerr<<"\nEvaluation step: ";
+            switch(failedPass)
+            {
+                case SUBEXPRESSIONS: {std::cerr<<"Subexpressions, ()"; break;}
+                case UNARYOPS:       {std::cerr<<"Unary Operations, ! and !!";  break;}
+                case EXPONENTIATION: {std::cerr<<"Exponentiation";  break;}
+                case FUNCTIONS:      {std::cerr<<"Function evaluation";  break;}
+                case UNARYMINUS:     {std::cerr<<"Negation, - operand";  break;}
+                case MULTIPLICATION: {std::cerr<<"Multiplication";  break;}
+                case ADDITION:       {std::cerr<<"Addition";  break;}
+                default: {std::cerr<<"Skill issue"; break;}
+            }
+            std::cerr<<"\n\n";
+        }
+        invalidExpressionSeen=true;
+    }
     return NAN;
 }
 
