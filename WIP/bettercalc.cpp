@@ -1103,13 +1103,13 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
         if(tokens.at(i).type()==token_t::INVALID) return NAN;
     }
 
-    for(uint i{1}; i<tokens.size(); i++)
+    for(int i{1}; i<tokens.size(); i++)
     {
-        if((tokens.at(i).type()==token_t::BINARYOP || tokens.at(i).type()==token_t::MULTICHARBINARY) && (tokens.at(i-1).type()==token_t::BINARYOP || tokens.at(i-1).type()==token_t::MULTICHARBINARY))
+        if(i>0 && (tokens.at(i).type()==token_t::BINARYOP || tokens.at(i).type()==token_t::MULTICHARBINARY) && (tokens.at(i-1).type()==token_t::BINARYOP || tokens.at(i-1).type()==token_t::MULTICHARBINARY))
         {
             tokens.erase(tokens.begin()+i--);
         }
-        if(i>0 && tokens.at(i).value()=="-" && tokens.at(i-1).value()=="-")
+        if(i>0 && tokens.at(i).value()=="-" && tokens.at(i-1).type()==token_t::UNARYOP && tokens.at(i-1).value()=="-" && tokens.at(i-1).type()==token_t::UNARYOP)
         {
             tokens.erase(tokens.begin()+i-1,tokens.begin()+i+1);
             i-=2;
@@ -1303,10 +1303,11 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
     if(tokens.size()==1 && (tokens.at(0).type()==token_t::NUMBER|| tokens.at(0).type()==token_t::CONSTANT)) return std::stold(tokens.at(0).value());
     else if(!invalidExpressionSeen)
     {
-        std::cerr<<"\nExpression could not be evaluated\nLeftover tokens: ";
-        for(uint i{}; i<tokens.size(); std::cerr<<tokens.at(i++).value());
+        std::cerr<<"\nExpression could not be evaluated\n";
         if(tokens.size()>0)
         {
+            std::cerr<<"Leftover tokens: ";
+            for(uint i{}; i<tokens.size(); std::cerr<<tokens.at(i++).value());
             std::cerr<<"\nEvaluation step: ";
             switch(failedPass)
             {
