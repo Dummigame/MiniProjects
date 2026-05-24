@@ -1105,13 +1105,18 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
 
     for(uint i{1}; i<tokens.size(); i++)
     {
-        if(tokens.at(i).type()==token_t::BINARYOP && tokens.at(i-1).type()==token_t::BINARYOP && tokens.at(i).value()!="-" && tokens.at(i-1).value()!="+")
+        if((tokens.at(i).type()==token_t::BINARYOP || tokens.at(i).type()==token_t::MULTICHARBINARY) && (tokens.at(i-1).type()==token_t::BINARYOP || tokens.at(i-1).type()==token_t::MULTICHARBINARY))
         {
-            tokens.erase(tokens.begin()+i);
+            tokens.erase(tokens.begin()+i--);
+        }
+        if(i>0 && tokens.at(i).value()=="-" && tokens.at(i-1).value()=="-")
+        {
+            tokens.erase(tokens.begin()+i-1,tokens.begin()+i+1);
+            i-=2;
         }
     }
     long unsigned int pass{};
-    long unsigned int failedPass{ADDITION};
+    long unsigned int failedPass{ADDITION+1};
     for(; pass<=ADDITION; pass++)
     {
         for(int i{}; i<tokens.size(); i++)
@@ -1311,8 +1316,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
                 case FUNCTIONS:      {std::cerr<<"Function evaluation";  break;}
                 case UNARYMINUS:     {std::cerr<<"Negation, - operand";  break;}
                 case MULTIPLICATION: {std::cerr<<"Multiplication";  break;}
-                case ADDITION:       {std::cerr<<"Addition";  break;}
-                default: {std::cerr<<"Skill issue"; break;}
+                default: {std::cerr<<"Uncertain or addition"; break;}
             }
             std::cerr<<"\n\n";
         }
