@@ -10,7 +10,7 @@
 #include <cmath>
 #include <sstream>
 
-void displayHelp();
+void displayHelp(char arg='a');
 bool isValidInput(const char);
 
 enum drawPos
@@ -125,21 +125,32 @@ class token
     {
         return input=="pi" 
             || input=="e" 
-            || input=="c" 
+            || input=="a" //Is it in the game?
+            || input=="ec" 
+            || input=="c"
+            || input=="R" 
             || input=="G"
+            || input=="g"
+            || input=="o"
+            || input=="h"
+            || input=="k"
             || input=="H0"
+            || input=="Z0"
+            || input=="U0"
+            || input=="E0"
             || input=="tau" 
             || input=="phi" 
             || input=="eul" 
             || input=="rad" 
-            || input=="deg" 
-            || input=="i" 
+            || input=="deg"
             || input=="inf"
             || input=="ppm"
             || input=="ppb"
             || input=="ppt"
             || input=="prc"
-            || input=="me";
+            || input=="me"
+            || input=="ma"
+            || input=="Na";
     }
 
     static bool isBinaryOp(const char c)
@@ -277,9 +288,21 @@ class token
         if(input=="i") return "nan";
         if(input=="c") return "299792458";
         if(input=="G") return "6.6743e-11";
+        if(input=="g") return "9.80665";
+        if(input=="o") return "5.670374419e-08";
+        if(input=="k") return "1.380649e-23";
+        if(input=="a") return "0.0072973525693";
+        if(input=="h") return "6.62607015e-34";
         if(input=="inf") return "inf";
         if(input=="H0") return "2.2e-18";
         if(input=="me") return "5.9722e+24";
+        if(input=="ec") return "1.602176634e-19";
+        if(input=="Z0") return "376.730313668";
+        if(input=="U0") return "1.25663706212e-06";
+        if(input=="E0") return "8.8541878128e-12";
+        if(input=="ma") return "1.6605390666e-27";
+        if(input=="R") return "8.31446261815";
+        if(input=="Na") return "6.02214076e+23";
         std::unreachable();
     }
     ///////////////////////////////////////////////
@@ -376,7 +399,7 @@ int main(int argc, char** argv)
             displayHelp();
             return 0;
         }
-        else if(equation.at(0)=='?' || equation.at(0)=='h')
+        else if(equation.find('?')!=std::string::npos)
         {
             displayHelp();
             return 0;
@@ -448,15 +471,25 @@ int main(int argc, char** argv)
         if(equation.at(0)=='q' || equation.at(0)=='Q' || equation.find("exit")!=std::string::npos || equation.find("quit")!=std::string::npos) break;
         if(equation.at(0)=='?')
         {
-            displayHelp();
+            std::cout<<"\nSelect from 'a'll, 'f'unctionality, 'c'onstants, 'n'otes and 'h'ints:\n=> ";
+            displayHelp(std::cin.get());
+            std::cin.ignore(10000,'\n');
+            std::cout<<'\n';
             equation.clear();
             continue;
         }                                 
         passedInAsArg:
 
-        for(uint i{}; i<equation.length(); i++) if(equation.at(i)>='A' && equation.at(i)<='Z' && equation.at(i)!='G' && equation.at(i)!='H') equation.at(i)=equation.at(i)+32;//'X' -> 'x' ToLower
+        for(uint i{}; i<equation.length(); i++) if(equation.at(i)>='A' && 
+                                                   equation.at(i)<='Y' && 
+                                                   equation.at(i)!='G' && 
+                                                   equation.at(i)!='E' && 
+                                                   equation.at(i)!='U' &&
+                                                   equation.at(i)!='R' && 
+                                                   equation.at(i)!='N' && 
+                                                   equation.at(i)!='H') equation.at(i)=equation.at(i)+32; //'X' -> 'x' ToLower with exceptions
         
-        if(equation.at(0)=='h'||equation.find("hist")!=std::string::npos)
+        if(equation.find("hist")!=std::string::npos)
         {
             if(resultHistory!="") std::cout<<"\nHistory:"<<resultHistory<<"\n\n"; 
             equation.clear();
@@ -607,6 +640,7 @@ int main(int argc, char** argv)
         calculation(std::vector<token>(),NAN,true); //Reset seenInvalid in calculation, so if an invalid expression is passed on the next iteration, it prints the error text
         if(passedInAsArg) break;
     }
+    std::cout<<'\n';
     return 0;
 }
 
@@ -689,21 +723,35 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void displayHelp()
+void displayHelp(char arg)
 {
-    std::cout<<"\nThis calculator takes an equation using numbers, ans<previous result> +, -, *, /, ^ (or **), x, !, !!, % (or mod), npk, nck, |expr|, (expr) or [expr] and these functions:\n"<<
-    "    root(denominator, enumerator), log(base,value)\n"<<
-    "    sin, cos, tan, sec, cosec, cot, arcsin, arccos, arctan, arcsec, arccosec, arccot\n"<<
-    "    sinh, cosh, tanh, sech, cosech, coth, arcsinh, arccosh, arctanh, arcsech, arccosech, arccoth\n"<<
-    "    floor, ceil, round, abs, ln"<<
-    "\nConstants: pi, e, c, G, me, H0, phi, inf, eul<Euler-Mascheroni>, tau<2*pi>, rad<180/pi> and deg<pi/180, useful for sin() and stuff>,prc<1%>, ppm, ppb, ppt"<<
-    "\n\nNotes:\n"<<
-    "    You may graph an equation if you include at least one instance of x.\n"<<
-    "    Enter \"h\" for a calculation history.\n"<<
-    "    You may use the following notation for numbers: 2.5e+5 = 250000 = 2.5*10^5\n"<<
-    "\nroot() and log() may be called with one argument, with defaults for the other. Example: root(4) = 2, log(10) = 1."<<
-    "\nInput from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them."<<
-    "\nExample: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\nCommand line input values: equation lowestX highestX stepSizeX or graphing (g/y, y for high zoom)\n\n";
+
+    if(arg>='A' && arg<='Z') arg=arg+32; //'X' -> 'x' ToLower
+
+    if(arg=='a' || arg=='f')
+        std::cout<<"\nThis calculator takes an equation using numbers, ans<previous result> +, -, *, /, ^ (or **), x, !, !!, % (or mod), npk, nck, |expr|, (expr) or [expr] and these functions:\n"<<
+        "    root(denominator, enumerator), log(base,value)\n"<<
+        "    sin, cos, tan, sec, cosec, cot, arcsin, arccos, arctan, arcsec, arccosec, arccot\n"<<
+        "    sinh, cosh, tanh, sech, cosech, coth, arcsinh, arccosh, arctanh, arcsech, arccosech, arccoth\n"<<
+        "    floor, ceil, round, abs, ln\n\n";
+
+    if(arg=='a' || arg=='c')
+        std::cout<<"\nConstants:"<<
+        "\n    Mathematics:" <<
+        "\n        pi, e, phi, inf, eul<Euler-Mascheroni>, tau<2pi>, rad<180/pi>, deg<pi/180>, prc, ppm, ppb, ppt" <<
+        "\n    Physics:"<<
+        "\n        c, G, g, me, H0, ec<e>, Z0, U0, E0, h, a, ma, R, o, Na\n\n";
+
+    if(arg=='a' || arg=='h' || arg=='n')
+        std::cout<<"\nNotes and Hints:\n"<<
+        "    You may graph an equation if you include at least one instance of x.\n"<<
+        "    Enter \"hist\" for a calculation history.\n"<<
+        "    Input into trig functions is treated as input in radiants. To input as degrees, use the \"deg\" constant.\n"<<
+        "    You may use the following notation for numbers: 2.5e+5 = 250000 = 2.5*10^5\n"<<
+        "    root() and log() may be called with one argument, with defaults for the other. Example: root(4) = 2, log(10) = 1.\n"<<
+        "    Input from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them.\n"<<
+        "    Example: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\n"<<
+        "    Command line input values: equation lowestX highestX stepSizeX or graphing (g/y, y for high zoom)\n\n";
     return;
 }
 
@@ -713,7 +761,8 @@ bool isValidInput(const char c)
 {
     return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'
             ||c==','||c=='e'||c=='s'||c=='i'||c=='n'||c=='c'||c=='a' ||c=='l'||c=='f'||c=='u'||c=='d'||c=='|'||c=='b'||c=='g'||c=='p'
-            ||c=='u'||c=='h'||c=='m'||c=='%'||c=='k'||c=='['||c==']'||c=='h'||c=='G'||c=='H'||c==';';
+            ||c=='u'||c=='h'||c=='m'||c=='%'||c=='k'||c=='['||c==']'||c=='h'||c=='G'||c=='H'||c==';'||c=='Z'||c=='U'||c=='E'||c=='R'
+            ||c=='N';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -724,7 +773,6 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
     static std::string_view lastSeenResult{};
     if(previousResult!="nan") lastSeenResult=previousResult;
     int nestingLevel{};
-    static bool memed{};
     int absNestingLevel{};
     int nestingOfFunction{};
     uint startOfFunction{};
@@ -830,10 +878,22 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
         else if(input.find("phi",i)==i) {currentToken="phi"; i+=2;}
         else if(input.find("eul", i)==i) {currentToken="eul"; i+=2;}
         else if (input.find("H0", i)==i) {currentToken="H0"; i++;}
+        else if (input.find("E0", i)==i) {currentToken="E0"; i++;}
+        else if (input.find("Z0", i)==i) {currentToken="Z0"; i++;}
+        else if (input.find("U0", i)==i) {currentToken="U0"; i++;}
         else if (input.find("me", i)==i) {currentToken="me"; i++;}
+        else if (input.find("ma", i)==i) {currentToken="ma"; i++;}
+        else if (input.find("ec", i)==i) {currentToken="ec"; i++;}
+        else if (input.find("Na", i)==i) {currentToken="Na"; i++;}
         else if (input.at(i)=='e') currentToken='e';
+        else if (input.at(i)=='a') currentToken='a';
         else if (input.at(i)=='c') currentToken='c';
         else if (input.at(i)=='G') currentToken='G';
+        else if (input.at(i)=='g') currentToken='g';
+        else if (input.at(i)=='h') currentToken='h';
+        else if (input.at(i)=='k') currentToken='k';
+        else if (input.at(i)=='R') currentToken='R';
+        else if (input.at(i)=='o') currentToken='o';
         else if (input.at(i)=='!')
         {
             currentToken='!';
