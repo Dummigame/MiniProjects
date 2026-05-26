@@ -1165,7 +1165,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
             tokens.emplace(tokens.begin()+i++, token("*"));
         if(tokens.at(i).type()==token_t::INVALID) return NAN;
 
-        if(tokens.at(i).value()=="+" && tokens.at(i-1).typeCategory()!=tokenCategory_t::NUMBER) tokens.erase(tokens.begin()+i--); //Lowk this line shouldn't work but it works?
+        if(tokens.at(i).value()=="+" && tokens.at(i-1).typeCategory()!=tokenCategory_t::NUMBER && tokens.at(i-1).typeCategory()!=tokenCategory_t::SUBEXPR) tokens.erase(tokens.begin()+i--); //Lowk this line shouldn't work but it works?
     }
 
     if(tokens.at(0).typeCategory()==tokenCategory_t::OPERATOR && tokens.at(0).value()!="-") tokens.erase(tokens.begin());
