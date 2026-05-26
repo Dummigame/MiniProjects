@@ -285,7 +285,6 @@ class token
         if(input=="ppb") return "0.000000001";
         if(input=="ppt") return "0.000000000001";
         if(input=="prc") return "0.01";
-        if(input=="i") return "nan";
         if(input=="c") return "299792458";
         if(input=="G") return "6.6743e-11";
         if(input=="g") return "9.80665";
@@ -1153,7 +1152,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
         if((tokens.at(i).typeCategory()==tokenCategory_t::SUBEXPR||tokens.at(i).typeCategory()==tokenCategory_t::FUNCTION) && tokens.at(i-1).typeCategory()!=tokenCategory_t::OPERATOR&& tokens.at(i-1).typeCategory()!=tokenCategory_t::FUNCTION&&tokens.at(i-1).type()!=token_t::ROOTARGLEFT&&tokens.at(i-1).type()!=token_t::LOGARGLEFT)
             tokens.emplace(tokens.begin()+i++, token("*"));
         if(i==tokens.size()) break;
-        if(tokens.at(i).value()=="-" && tokens.at(i-1).type()!=token_t::BINARYOP && tokens.at(i-1).type()!=token_t::MULTICHARBINARY && tokens.at(i-1).type()!=token_t::UNARYOP && tokens.at(i-1).type()!=token_t::MULTICHARUNARY)
+        if(tokens.at(i).value()=="-" && tokens.at(i-1).type()!=token_t::BINARYOP && tokens.at(i-1).type()!=token_t::MULTICHARBINARY && tokens.at(i-1).type()!=token_t::UNARYOP && tokens.at(i-1).type()!=token_t::MULTICHARUNARY && tokens.at(i-1).type()!=token_t::FUNCTION)
             tokens.emplace(tokens.begin()+i++, token("+"));
         if(i==tokens.size()) break;
         if((tokens.at(i-1).typeCategory()==tokenCategory_t::FUNCTION) && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR&& tokens.at(i).typeCategory()!=tokenCategory_t::NUMBER&& tokens.at(i).typeCategory()!=tokenCategory_t::SUBEXPR&&tokens.at(i).type()!=token_t::ROOTARGRIGHT&&tokens.at(i).type()!=token_t::LOGARGRIGHT&&tokens.at(i).type()!=token_t::FUNCTION)
@@ -1161,7 +1160,11 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
         if((tokens.at(i-1).typeCategory()==tokenCategory_t::SUBEXPR) && tokens.at(i).typeCategory()!=tokenCategory_t::OPERATOR&& tokens.at(i).typeCategory()!=tokenCategory_t::SUBEXPR&&tokens.at(i).type()!=token_t::ROOTARGRIGHT&&tokens.at(i).type()!=token_t::LOGARGRIGHT&&tokens.at(i).type()!=token_t::FUNCTION)
             tokens.emplace(tokens.begin()+i++, token("*"));
         if(tokens.at(i).type()==token_t::INVALID) return NAN;
+
+        if(tokens.at(i).value()=="+" && tokens.at(i-1).typeCategory()!=tokenCategory_t::NUMBER) tokens.erase(tokens.begin()+i--); //Lowk this line shouldn't work but it works?
     }
+
+    if(tokens.at(0).typeCategory()==tokenCategory_t::OPERATOR && tokens.at(0).value()!="-") tokens.erase(tokens.begin());
 
     for(int i{1}; i<tokens.size(); i++)
     {
