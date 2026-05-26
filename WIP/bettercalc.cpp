@@ -1,17 +1,21 @@
+#pragma once
 #include <cctype>
 #include <cfloat>
 #include <cstdint>
-#include <cstdlib>
 #include <cfloat>
 #include <iostream>
 #include <string>
 #include <utility>
 #include <vector>
-#include <cmath>
+#include <boost/math/constants/constants.hpp>
 #include <sstream>
-
+#include <boost/multiprecision/cpp_dec_float.hpp>
 void displayHelp(char arg='a');
 bool isValidInput(const char);
+
+using boost::multiprecision::cpp_dec_float_100;
+using boost::math::constants::pi;
+
 
 enum drawPos
 {
@@ -65,9 +69,9 @@ bool isNumber(const std::string &input);
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct point
 {
-    long double x{};
-    long double y{};
-    point(long double inX, long double inY)
+    cpp_dec_float_100 x{};
+    cpp_dec_float_100 y{};
+    point(cpp_dec_float_100 inX, cpp_dec_float_100 inY)
     {
         this->x=inX;
         if(inY==INFINITY || inY==-INFINITY) this->y=NAN;
@@ -79,9 +83,9 @@ struct point
 struct options
 {
     bool graph{};   //Whether to draw graph or not
-    long double xMin{};
-    long double xMax{};  
-    long double xStep{}; //Hey, reference
+    cpp_dec_float_100 xMin{};
+    cpp_dec_float_100 xMax{};  
+    cpp_dec_float_100 xStep{}; //Hey, reference
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -274,13 +278,13 @@ class token
     ///////////////////////////////////////////////
     static std::string replaceConstants(std::string &input)
     {
-        if(input=="e") return "2.718281828459045235360287471352";
-        if(input=="pi") return "3.14159265358979323846";
-        if(input=="tau") return "6.28318530717958647692";
-        if(input=="phi") return "1.61803398874989484820";
-        if(input=="eul") return "0.57721566490153286060";
-        if(input=="rad") return "57.2957795130823209";
-        if(input=="deg") return "0.0174532925199432958";
+        if(input=="e") return "2.718281828459045235360287471352662497757247093699959574966967627724076630353547594571382178525166427";
+        if(input=="pi") return "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117068";
+        if(input=="tau") return "6.283185307179586476925286766559005768394338798750211641949889184615632812572417997256069650684234136";
+        if(input=="phi") return "1.618033988749894848204586834365638117720309179805762862135448622705260462818902449707207204189391137";
+        if(input=="eul") return "0.5772156649015328606065120900824024310421593359399235988057672348848677267776646709369470632917467495";
+        if(input=="rad") return "57.29577951308232087679815481410517033240547246656432154916024386120284714832155263244096899585111094";
+        if(input=="deg") return "0.01745329251994329576923690768488612713442871888541725456097191440171009114603449443682241569634509482";
         if(input=="ppm") return "0.000001";
         if(input=="ppb") return "0.000000001";
         if(input=="ppt") return "0.000000000001";
@@ -328,19 +332,19 @@ class token
         if(tokenValue=="")tokenValue = value;
     }
     ///////////////////////////////////////////////
-    long double number(long double xValue=NAN)
+    cpp_dec_float_100 number(cpp_dec_float_100 xValue=NAN)
     {
         if(xValue!=NAN && this->tokenType==token_t::VARIABLE)
         {
             std::ostringstream asOSStream;
-            asOSStream.precision(LDBL_DIG);
+            asOSStream.precision(100);
             asOSStream << xValue;
             this->tokenValue=asOSStream.str();
             this->tokenType=token_t::NUMBER;
         }
 
         if (tokenType != token_t::NUMBER && tokenType != token_t::CONSTANT) return NAN;
-        return std::stold(tokenValue);
+        return static_cast<cpp_dec_float_100>(tokenValue);
     }
     ///////////////////////////////////////////////
     std::string value()
@@ -360,15 +364,15 @@ class token
 
 std::vector<token> getTokens(const std::string&, const std::string &previousResult="nan");
 void getVariableArgs(std::vector<token>&, options&);
-void graph(const std::vector<point>&points, const long double yMin, const long double yMax, const uint xClosestToZeroIndex, const options &options);
-long double calculation(std::vector<token>, const long double xValue,const bool resetInvalid=false);
-long double evaluateAbs(token &arg, const long double xValue);
+void graph(const std::vector<point>&points, const cpp_dec_float_100 yMin, const cpp_dec_float_100 yMax, const uint xClosestToZeroIndex, const options &options);
+cpp_dec_float_100 calculation(std::vector<token>, const cpp_dec_float_100 xValue,const bool resetInvalid=false);
+cpp_dec_float_100 evaluateAbs(token &arg, const cpp_dec_float_100 xValue);
 
-long double evaluateRoot(token denominator, token &enumerator, const long double xValue);
-long double evaluateLog(token denominatorArg, token &enumeratorArg, const long double xValue);
+cpp_dec_float_100 evaluateRoot(token denominator, token &enumerator, const cpp_dec_float_100 xValue);
+cpp_dec_float_100 evaluateLog(token denominatorArg, token &enumeratorArg, const cpp_dec_float_100 xValue);
 
-long double evaluateUnary(token&, token&, const long double xValue);
-long double evaluateBinary(token&, token&, token&, const long double xValue);
+cpp_dec_float_100 evaluateUnary(token&, token&, const cpp_dec_float_100 xValue);
+cpp_dec_float_100 evaluateBinary(token&, token&, token&, const cpp_dec_float_100 xValue);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -380,9 +384,8 @@ int main(int argc, char** argv)
     bool firstPass{true};
     options options;
     std::ostringstream resultAsOSStream;
-    resultAsOSStream.precision(LDBL_DIG);
-    std::cout.precision(LDBL_DIG);
-
+    resultAsOSStream.precision(100);
+    std::cout.precision(100);
     bool passedInAsArg{};
     std::string equation{};
     if(argc>1)
@@ -431,9 +434,9 @@ int main(int argc, char** argv)
         if(argc>4)
         {
             
-            if(isNumber(argv[2])) options.xMin=std::stold(argv[2]);
+            if(isNumber(argv[2])) options.xMin=static_cast<cpp_dec_float_100>(argv[2]);
             else {std::cerr<<"\nYou did not enter a number\n"; return 0;}
-            if(isNumber(argv[3])) options.xMax=std::stold(argv[3]);
+            if(isNumber(argv[3])) options.xMax=static_cast<cpp_dec_float_100>(argv[3]);
             else {std::cerr<<"\nYou did not enter a number\n"; return 0;}
             if(argv[4][0]=='y' || argv[4][0]=='Y' || argv[4][0]=='g' || argv[4][0]=='G')
             {
@@ -441,7 +444,7 @@ int main(int argc, char** argv)
                 if(argv[4][0]=='g' || argv[4][0]=='G') options.xStep=0.2;
                 else options.xStep=0.05;
             }
-            else if(isNumber(argv[4])) options.xStep=std::stold(argv[4]);
+            else if(isNumber(argv[4])) options.xStep=static_cast<cpp_dec_float_100>(argv[4]);
             else {std::cerr<<"\nYou did not enter a number\n"; return 0;}
             
             if(options.xMin>=options.xMax) {std::cerr<<"\nInvalid range\n"; return 0;}
@@ -452,8 +455,8 @@ int main(int argc, char** argv)
 
     while(!std::cin.eof())
     {
-        std::cout.precision(LDBL_DIG);
-        resultAsOSStream.precision(LDBL_DIG);
+        std::cout.precision(100);
+        resultAsOSStream.precision(100);
         if(equation!="") goto passedInAsArg;
         if(firstPass) std::cout << "Type your equation (? for help, q to quit):\n=> ";
         else std::cout << "Type your equation:\n=> ";
@@ -570,9 +573,9 @@ int main(int argc, char** argv)
         }
         else if(!options.graph)
         {
-            std::cout.precision(FLT_DIG);
-            resultAsOSStream.precision(FLT_DIG);
-            for(long double xValue=options.xMin; xValue<=options.xMax; xValue+=options.xStep)
+            std::cout.precision(100);
+            resultAsOSStream.precision(100);
+            for(cpp_dec_float_100 xValue=options.xMin; xValue<=options.xMax; xValue+=options.xStep)
             {
                 if(xValue>(-0.0000002) && xValue<0.0000002) xValue=0;
                 resultAsOSStream<<calculation(tokens, xValue);
@@ -596,25 +599,25 @@ int main(int argc, char** argv)
         }
         else
         {
-            long double largestY{-DBL_MAX};
-            long double smallestY{DBL_MAX};
-            long double yClosestToZero{DBL_MAX};
-            long double xClosestToZero{DBL_MAX};
+            cpp_dec_float_100 largestY{-DBL_MAX};
+            cpp_dec_float_100 smallestY{DBL_MAX};
+            cpp_dec_float_100 yClosestToZero{DBL_MAX};
+            cpp_dec_float_100 xClosestToZero{DBL_MAX};
             uint xClosestToZeroIndex{INT32_MAX};
             std::vector<point> points;
             uint i{};
-            for(long double xValue=options.xMin; xValue<=options.xMax; xValue+=options.xStep)
+            for(cpp_dec_float_100 xValue=options.xMin; xValue<=options.xMax; xValue+=options.xStep)
             {
                 if(xValue>(-0.0000002) && xValue<0.0000002) xValue=0;
                 points.push_back(point(xValue,calculation(tokens,xValue)));
 
-                if(std::abs(points.at(i).y)<yClosestToZero)
+                if(abs(points.at(i).y)<yClosestToZero)
                 {
-                    yClosestToZero=std::abs(points.at(i).y);
+                    yClosestToZero=abs(points.at(i).y);
                 }
-                if(std::abs(points.at(i).x)<xClosestToZero) 
+                if(abs(points.at(i).x)<xClosestToZero) 
                 {
-                    xClosestToZero=std::abs(points.at(i).x);
+                    xClosestToZero=abs(points.at(i).x);
                     xClosestToZeroIndex=i;
                 }
                 if(points.at(i).y<smallestY) smallestY=points.at(i).y;
@@ -647,14 +650,15 @@ int main(int argc, char** argv)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //This function is ugly.
-void graph(const std::vector<point>&points, const long double yMin, const long double yMax, const uint xClosestToZeroIndex, const options &options)
+void graph(const std::vector<point>&points, const cpp_dec_float_100 yMin, const cpp_dec_float_100 yMax, const uint xClosestToZeroIndex, const options &options)
 {
     if(yMin>yMax) return;
-    const long double yRange=(std::abs(yMax)+std::abs(yMin))/options.xStep+std::abs(yMin*5); //Absurd line
-    long double height=yRange+(1/(yRange+0.5))*700; //Trust
+    const cpp_dec_float_100 yMin5 = yMin*5;
+    const cpp_dec_float_100 yRange=(abs(yMax)+abs(yMin))/options.xStep+abs(yMin5); //Absurd line
+    cpp_dec_float_100 height=yRange+(1/(yRange+0.5))*700; //Trust
     if(height>yRange*3) height=yRange+15;
     
-    const long double length=points.size();
+    const cpp_dec_float_100 length=points.size();
 
     drawPos yAxisPos=ZERO;
     if(options.xMin>=0) yAxisPos=LEFT;
@@ -677,13 +681,13 @@ void graph(const std::vector<point>&points, const long double yMin, const long d
             
             //Plot point
             else if((i<length-1&&((points.at(i+1).y)/options.xStep >= height/2-rows)&&(points.at(i).y)/options.xStep<=height/2-rows)||
-                    (std::round((points.at(i).y)/options.xStep) == std::round(height/2-rows+options.xStep))||
+                    (round((points.at(i).y)/options.xStep) == round(height/2-rows+options.xStep))||
                     (i>0&&((points.at(i).y)/options.xStep <= height/2-rows)&&(points.at(i-1).y)/options.xStep>=height/2-rows)) graphLine<<'+';
            
             //Draw X axis
-            else if((std::round(height/2)==rows && i<length-1)) graphLine<<'-';
+            else if((round(height/2)==rows && i<length-1)) graphLine<<'-';
 
-            else if((std::round(height/2)==rows && i==length-1)) graphLine<<"-  >";
+            else if((round(height/2)==rows && i==length-1)) graphLine<<"-  >";
 
             //Draw Y axis
             else if(i==0 && rows==0 && yAxisPos==LEFT) graphLine<<'^';
@@ -1070,7 +1074,7 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
 
     std::cout << "\nSpecify variable minimum: ";
     std::cin>>input;
-    if(!std::cin.eof() && input.length()>0 && isNumber(input)) options.xMin=std::stold(input);
+    if(!std::cin.eof() && input.length()>0 && isNumber(input)) options.xMin=static_cast<cpp_dec_float_100>(input);
     else 
     {
         std::cerr<<"\nYou did not enter a number\n";
@@ -1079,7 +1083,7 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
 
     std::cout << "\nSpecify variable maximum: ";
     std::cin>>input;
-    if(!std::cin.eof() && input.length()>0 && isNumber(input)) options.xMax=std::stold(input);
+    if(!std::cin.eof() && input.length()>0 && isNumber(input)) options.xMax=static_cast<cpp_dec_float_100>(input);
     else 
     {
         std::cerr<<"\nYou did not enter a number\n";
@@ -1104,7 +1108,7 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
     {
         std::cout << "\nSpecify variable increment/step: ";
         std::cin>>input;
-        if(!std::cin.eof() && isNumber(input)) options.xStep=std::stold(input);
+        if(!std::cin.eof() && isNumber(input)) options.xStep=static_cast<cpp_dec_float_100>(input);
         else 
         {
             std::cerr<<"\nYou did not enter a number\n";
@@ -1125,7 +1129,7 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double calculation(std::vector<token> tokens, const long double xValue, const bool resetInvalid)
+cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100 xValue, const bool resetInvalid)
 {
     static bool invalidExpressionSeen{};
     if(resetInvalid) invalidExpressionSeen=false;
@@ -1133,7 +1137,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
     if(tokens.size()==1 && tokens.at(0).typeCategory()==tokenCategory_t::NUMBER) return tokens.at(0).number(xValue);
     if(tokens.size()==1 && tokens.at(0).type()==token_t::INVALID) return NAN;
     std::ostringstream resultAsOSStream;
-    resultAsOSStream.precision(LDBL_DIG);
+    resultAsOSStream.precision(100);
 
     for(uint i{1}; i<tokens.size(); i++)
     {
@@ -1186,7 +1190,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
         {
             if(pass==SUBEXPRESSIONS)
             {
-                long double evaluatedSubexpr{};
+                cpp_dec_float_100 evaluatedSubexpr{};
                 if(tokens.at(i).type()==token_t::SUBEXPR)
                 {
                     evaluatedSubexpr=calculation(getTokens(tokens.at(i).value()), xValue);
@@ -1237,7 +1241,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
                 }
                 if((tokens.at(i).type()==token_t::UNARYOP || tokens.at(i).type()==token_t::MULTICHARUNARY) && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
                 {
-                    long double evaluatedUnary=evaluateUnary(tokens.at(i-1), tokens.at(i), xValue);
+                    cpp_dec_float_100 evaluatedUnary=evaluateUnary(tokens.at(i-1), tokens.at(i), xValue);
                     resultAsOSStream << evaluatedUnary;
                     tokens.at(i-1)=token(resultAsOSStream.str());
                     resultAsOSStream.str("");
@@ -1262,7 +1266,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
                             //Account for something like x^-1
                             if((tokens.at(i-2).value()=="^" || tokens.at(i-1).value()=="**") && tokens.at(i-1).value()=="-" && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                             {
-                                long double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
+                                cpp_dec_float_100 evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
                                 resultAsOSStream << evaluatedUnary;
                                 tokens.at(i-1)=token(resultAsOSStream.str());
                                 resultAsOSStream.str("");
@@ -1271,7 +1275,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
                             }
                             if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="^" || tokens.at(i-1).value()=="**") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                             {
-                                long double evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
+                                cpp_dec_float_100 evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
                                 resultAsOSStream << evaluatedBinary;
                                 tokens.at(i-2)=token(resultAsOSStream.str());
                                 tokens.erase(tokens.begin()+i-1);
@@ -1292,7 +1296,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
                     }
                 if(i!=0&&(tokens.at(i-1).type()==token_t::FUNCTION) && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
-                    long double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
+                    cpp_dec_float_100 evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
                     resultAsOSStream << evaluatedUnary;
                     tokens.at(i-1)=token(resultAsOSStream.str());
                     resultAsOSStream.str("");
@@ -1310,7 +1314,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
                     }
                 if(i!=0&&(tokens.at(i-1).value()=="-") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
-                    long double evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
+                    cpp_dec_float_100 evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
                     resultAsOSStream << evaluatedUnary;
                     tokens.at(i-1)=token(resultAsOSStream.str());
                     resultAsOSStream.str("");
@@ -1329,7 +1333,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
                 if(i<=1) continue;
                 if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="*" || tokens.at(i-1).value()=="/" || tokens.at(i-1).value()=="npk" || tokens.at(i-1).value()=="nck" || tokens.at(i-1).value()=="mod" || tokens.at(i-1).value()=="%") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
-                    long double evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
+                    cpp_dec_float_100 evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
                     resultAsOSStream << evaluatedBinary;
                     tokens.at(i-2)=token(resultAsOSStream.str());
                     resultAsOSStream.str("");
@@ -1349,7 +1353,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
                 if(i<=1) continue;
                 if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="+" || tokens.at(i-1).value()=="-") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
-                    long double evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
+                    cpp_dec_float_100 evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
                     resultAsOSStream << evaluatedBinary;
                     tokens.at(i-2)=token(resultAsOSStream.str());
                     tokens.erase(tokens.begin()+i-1);
@@ -1363,7 +1367,7 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
     }
     if(tokens.size()==1 && tokens.at(0).type()==token_t::VARIABLE) return xValue;
     
-    if(tokens.size()==1 && (tokens.at(0).type()==token_t::NUMBER|| tokens.at(0).type()==token_t::CONSTANT)) return std::stold(tokens.at(0).value());
+    if(tokens.size()==1 && (tokens.at(0).type()==token_t::NUMBER|| tokens.at(0).type()==token_t::CONSTANT)) return static_cast<cpp_dec_float_100>(tokens.at(0).value());
     else if(!invalidExpressionSeen)
     {
         std::cerr<<"\nExpression could not be evaluated\n";
@@ -1391,114 +1395,114 @@ long double calculation(std::vector<token> tokens, const long double xValue, con
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double evaluateAbs(token &arg, const long double xValue)
+cpp_dec_float_100 evaluateAbs(token &arg, const cpp_dec_float_100 xValue)
 {
-    return std::abs(calculation(getTokens(arg.value()), xValue));
+    return abs(calculation(getTokens(arg.value()), xValue));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double evaluateRoot(token denominatorArg, token &enumeratorArg, const long double xValue)
+cpp_dec_float_100 evaluateRoot(token denominatorArg, token &enumeratorArg, const cpp_dec_float_100 xValue)
 {
-    long double denominator{};
+    cpp_dec_float_100 denominator{};
 
     std::vector<token> tokenToEval{denominatorArg};
     if(denominatorArg.type()!=token_t::ROOTARGLEFT) denominator=2;
     else denominator=calculation(getTokens(denominatorArg.value()), xValue);
 
     tokenToEval.at(0)=enumeratorArg;
-    long double enumerator=calculation(getTokens(enumeratorArg.value()), xValue);
+    cpp_dec_float_100 enumerator=calculation(getTokens(enumeratorArg.value()), xValue);
 
     if(denominator==static_cast<int>(denominator) && static_cast<int>(denominator)%2==0 && enumerator<0) return NAN;
 
-    if(enumerator<0) return -std::pow(-enumerator,1/denominator);
-    else return std::pow(enumerator, 1/denominator);
+    if(enumerator<0) return -pow(-enumerator,1/denominator);
+    else return pow(enumerator, 1/denominator);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double evaluateLog(token denominatorArg, token &enumeratorArg, const long double xValue)
+cpp_dec_float_100 evaluateLog(token denominatorArg, token &enumeratorArg, const cpp_dec_float_100 xValue)
 {
-    long double denominator{};
+    cpp_dec_float_100 denominator{};
 
     std::vector<token> tokenToEval{denominatorArg};
     if(denominatorArg.type()!=token_t::LOGARGLEFT) denominator=10;
     else denominator=calculation(getTokens(denominatorArg.value()), xValue);
 
-    return std::log(calculation(getTokens(enumeratorArg.value()), xValue))/std::log(denominator);
+    return log(calculation(getTokens(enumeratorArg.value()), xValue))/log(denominator);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double evaluateBinary(token &numberStringLeft, token &operation, token &numberStringRight, const long double xValue)
+cpp_dec_float_100 evaluateBinary(token &numberStringLeft, token &operation, token &numberStringRight, const cpp_dec_float_100 xValue)
 {
-    long double numberLeft{numberStringLeft.number(xValue)};
-    long double numberRight{numberStringRight.number(xValue)};
+    cpp_dec_float_100 numberLeft{numberStringLeft.number(xValue)};
+    cpp_dec_float_100 numberRight{numberStringRight.number(xValue)};
 
     if(operation.value()=="+") return numberLeft+numberRight;
     else if(operation.value()=="*") return numberLeft*numberRight;
     else if(operation.value()=="/") return numberLeft/numberRight;
-    else if(operation.value()=="^" || operation.value()=="**") return std::pow(numberLeft, numberRight);
-    else if(operation.value()=="mod" || operation.value()=="%") return std::fmod(numberLeft,numberRight);
-    else if(operation.value()=="npk") return (std::tgamma(numberLeft+1)/std::tgamma(numberLeft-numberRight+1));
-    else if(operation.value()=="nck") return (std::tgamma(numberLeft+1)/(std::tgamma(numberRight+1)*std::tgamma(numberLeft-numberRight+1)));
+    else if(operation.value()=="^" || operation.value()=="**") return pow(numberLeft, numberRight);
+    else if(operation.value()=="mod" || operation.value()=="%") return fmod(numberLeft,numberRight);
+    else if(operation.value()=="npk") return (tgamma(numberLeft+1)/tgamma(numberLeft-numberRight+1));
+    else if(operation.value()=="nck") return (tgamma(numberLeft+1)/(tgamma(numberRight+1)*tgamma(numberLeft-numberRight+1)));
 
     std::unreachable();
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-long double evaluateUnary(token &numberString, token &operation, const long double xValue)
+cpp_dec_float_100 evaluateUnary(token &numberString, token &operation, const cpp_dec_float_100 xValue)
 {
-    long double number=numberString.number(xValue);
-    long double result{1};
+    cpp_dec_float_100 number=numberString.number(xValue);
+    cpp_dec_float_100 result{1};
     if(operation.value()=="-") return -number;
 
-    if(operation.value()=="sin") return std::sin(std::fmod(number,2*M_PI));
-    if(operation.value()=="cos") return std::cos(std::fmod(number,2*M_PI));
-    if(operation.value()=="tan") return std::tan(std::fmod(number,M_PI));
+    if(operation.value()=="sin") return sin(fmod(number,2*pi<cpp_dec_float_100>()));
+    if(operation.value()=="cos") return cos(fmod(number,2*pi<cpp_dec_float_100>()));
+    if(operation.value()=="tan") return tan(fmod(number,pi<cpp_dec_float_100>()));
 
-    if(operation.value()=="sec") return 1/std::cos(std::fmod(number,2*M_PI));
-    if(operation.value()=="csc") return 1/std::sin(std::fmod(number,2*M_PI));
-    if(operation.value()=="cot") return 1/std::tan(std::fmod(number,M_PI));
+    if(operation.value()=="sec") return 1/cos(fmod(number,2*pi<cpp_dec_float_100>()));
+    if(operation.value()=="csc") return 1/sin(fmod(number,2*pi<cpp_dec_float_100>()));
+    if(operation.value()=="cot") return 1/tan(fmod(number,pi<cpp_dec_float_100>()));
 
-    if(operation.value()=="asec") return std::acos(1/number);
-    if(operation.value()=="acsc") return std::asin(1/number);
-    if(operation.value()=="acot") return std::atan(1/number);
+    if(operation.value()=="asec") return acos(1/number);
+    if(operation.value()=="acsc") return asin(1/number);
+    if(operation.value()=="acot") return atan(1/number);
 
-    if(operation.value()=="sinh") return std::sinh(number);
-    if(operation.value()=="cosh") return std::cosh(number);
-    if(operation.value()=="tanh") return std::tanh(number);
+    if(operation.value()=="sinh") return sinh(number);
+    if(operation.value()=="cosh") return cosh(number);
+    if(operation.value()=="tanh") return tanh(number);
 
-    if(operation.value()=="asinh") return std::asinh(number);
-    if(operation.value()=="acosh") return std::acosh(number);
-    if(operation.value()=="atanh") return std::atanh(number);
+    if(operation.value()=="asinh") return asinh(number);
+    if(operation.value()=="acosh") return acosh(number);
+    if(operation.value()=="atanh") return atanh(number);
 
-    if(operation.value()=="asech") return std::acosh(1/number);
-    if(operation.value()=="acsch") return std::asinh(1/number);
-    if(operation.value()=="acoth") return std::atanh(1/number);
+    if(operation.value()=="asech") return acosh(1/number);
+    if(operation.value()=="acsch") return asinh(1/number);
+    if(operation.value()=="acoth") return atanh(1/number);
 
-    if(operation.value()=="sech") return 1/std::cosh(number);
-    if(operation.value()=="csch") return 1/std::sinh(number);
-    if(operation.value()=="coth") return 1/std::tanh(number);
+    if(operation.value()=="sech") return 1/cosh(number);
+    if(operation.value()=="csch") return 1/sinh(number);
+    if(operation.value()=="coth") return 1/tanh(number);
 
-    if(operation.value()=="asin") return std::asin(number);
-    if(operation.value()=="acos") return std::acos(number);
-    if(operation.value()=="atan") return std::atan(number);
+    if(operation.value()=="asin") return asin(number);
+    if(operation.value()=="acos") return acos(number);
+    if(operation.value()=="atan") return atan(number);
 
-    if(operation.value()=="round") return std::round(number);
-    if(operation.value()=="floor") return std::floor(number);
-    if(operation.value()=="ceil") return std::ceil(number);
-    if(operation.value()=="abs") return std::abs(number);
-    if(operation.value()=="ln") return std::log(number);
+    if(operation.value()=="round") return round(number);
+    if(operation.value()=="floor") return floor(number);
+    if(operation.value()=="ceil") return ceil(number);
+    if(operation.value()=="abs") return abs(number);
+    if(operation.value()=="ln") return log(number);
 
     if(operation.value()=="!!")
     {
         if(number<0) return NAN;
-        number=std::round(number);
-        for(long double i{std::fmod(number, 2)+2}; i<number+1; i+=2)
+        number=round(number);
+        for(cpp_dec_float_100 i{fmod(number, 2)+2}; i<number+1; i+=2)
         {
-            if(number>3209) return INFINITY;
+            if(number>19572801.5) return INFINITY;
             if(number==0) return 1.0;
             result*=i;
         }
@@ -1506,7 +1510,7 @@ long double evaluateUnary(token &numberString, token &operation, const long doub
     }
     else if(operation.value()=="!")
     {
-        return std::tgamma(number+1);
+        return tgamma(number+1);
     }
     return result;
 }
