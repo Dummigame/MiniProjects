@@ -490,6 +490,8 @@ int main(int argc, char** argv)
                                                    equation.at(i)!='R' && 
                                                    equation.at(i)!='N' && 
                                                    equation.at(i)!='H') equation.at(i)=equation.at(i)+32; //'X' -> 'x' ToLower with exceptions
+
+        for(uint i{}; i<equation.length(); i++) if(equation.at(i)<32) equation.erase(i--,1);
         
         if(equation.find("hist")!=std::string::npos)
         {
@@ -1108,7 +1110,7 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
     {
         std::cout << "\nSpecify variable increment/step: ";
         std::cin>>input;
-        if(!std::cin.eof() && isNumber(input)) options.xStep=static_cast<cpp_dec_float_100>(input);
+        if(!std::cin.eof() && isNumber(input) && input.length()>0) options.xStep=static_cast<cpp_dec_float_100>(input);
         else 
         {
             std::cerr<<"\nYou did not enter a number\n";
@@ -1519,6 +1521,11 @@ cpp_dec_float_100 evaluateUnary(token &numberString, token &operation, const cpp
 
 bool isNumber(const std::string &input)
 {
+    for(uint i{}; i<input.length(); i++) if((input.at(i)<'0' || input.at(i)>'9') && 
+                                             input.at(i)!='e' && 
+                                             input.at(i)!='.' &&
+                                             input.at(i)!='+' &&
+                                             input.at(i)!='-') return false;
     uint dotCount{};
     uint eCount{};
 
