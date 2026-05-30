@@ -49,9 +49,12 @@ enum class token_t
     NUMBER,
     ROOTARGRIGHT,
     ROOTARGLEFT,
-    MEANARG,
-    RNDINTARG,
-    ABSARG,
+    MEAN,
+    RNDINT,
+    RNDSEL,
+    ABS,
+    GREATEST,
+    LEAST,
     LOGARGRIGHT,
     LOGARGLEFT,
     SUBEXPR,
@@ -126,9 +129,12 @@ class token
         else if(isLogArgRight(value)) return token_t::LOGARGRIGHT;
         else if(isLogArgLeft(value)) return token_t::LOGARGLEFT;
         else if(isSubexpr(value)) return token_t::SUBEXPR;
-        else if(isAbsArg(value)) return token_t::ABSARG;
-        else if(isMeanArg(value)) return token_t::MEANARG;
-        else if(isRndintArg(value)) return token_t::RNDINTARG;
+        else if(isAbsArg(value)) return token_t::ABS;
+        else if(isMeanArg(value)) return token_t::MEAN;
+        else if(isLeastArg(value)) return token_t::LEAST;
+        else if(isGreatestArg(value)) return token_t::GREATEST;
+        else if(isRndintArg(value)) return token_t::RNDINT;
+        else if(isRndselArg(value)) return token_t::RNDSEL;
         else if(value=="x") return token_t::VARIABLE;
         return token_t::INVALID;
     }
@@ -241,10 +247,40 @@ class token
         return true;
     }  
     ///////////////////////////////////////////////
+    bool isRndselArg(std::string &input)
+    {
+        if(input.find("rndsel(")!=0) return false;
+        for(size_t i{7}; i<input.length(); i++)
+        {
+            tokenValue.push_back(input.at(i));
+        }
+        return true;
+    } 
+    ///////////////////////////////////////////////
     bool isRndintArg(std::string &input)
     {
         if(input.find("rndint(")!=0) return false;
         for(size_t i{7}; i<input.length(); i++)
+        {
+            tokenValue.push_back(input.at(i));
+        }
+        return true;
+    }  
+    ///////////////////////////////////////////////
+    bool isGreatestArg(std::string &input)
+    {
+        if(input.find("greatest(")!=0) return false;
+        for(size_t i{9}; i<input.length(); i++)
+        {
+            tokenValue.push_back(input.at(i));
+        }
+        return true;
+    }  
+    ///////////////////////////////////////////////
+    bool isLeastArg(std::string &input)
+    {
+        if(input.find("least(")!=0) return false;
+        for(size_t i{6}; i<input.length(); i++)
         {
             tokenValue.push_back(input.at(i));
         }
@@ -345,8 +381,8 @@ class token
     {
         if(type==token_t::NUMBER || type==token_t::VARIABLE || type==token_t::CONSTANT) return tokenCategory_t::NUMBER;
         else if(type==token_t::SUBEXPR ||
-                type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT || type==token_t::ABSARG||
-                type==token_t::LOGARGLEFT || type==token_t::LOGARGRIGHT || type==token_t::MEANARG|| type==token_t::RNDINTARG) return tokenCategory_t::SUBEXPR;
+                type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT || type==token_t::ABS|| type==token_t::GREATEST|| type==token_t::LEAST||
+                type==token_t::LOGARGLEFT || type==token_t::LOGARGRIGHT || type==token_t::MEAN || type==token_t::RNDINT || type==token_t::RNDSEL) return tokenCategory_t::SUBEXPR;
         else if(type==token_t::FUNCTION) return tokenCategory_t::FUNCTION;
         else return tokenCategory_t::OPERATOR;
     }
@@ -409,6 +445,9 @@ cpp_dec_float_100 evaluateUnary(token&, token&, const cpp_dec_float_100 xValue);
 cpp_dec_float_100 evaluateBinary(token&, token&, token&, const cpp_dec_float_100 xValue);
 cpp_dec_float_100 evaluateMean(token &arg, const cpp_dec_float_100 xValue);
 cpp_dec_float_100 evaluateRndint(token &arg, const cpp_dec_float_100 xValue);
+cpp_dec_float_100 evaluateRndsel(token &arg, const cpp_dec_float_100 xValue);
+cpp_dec_float_100 evaluateGreatest(token &arg, const cpp_dec_float_100 xValue);
+cpp_dec_float_100 evaluateLeast(token &arg, const cpp_dec_float_100 xValue);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -779,7 +818,7 @@ void displayHelp(char arg)
 
     if(arg=='a' || arg=='f')
         std::cout<<"\nThis calculator takes an expression using numbers, rnd, rndint, ans<prev. result> +, -, *, /, ^ (or **), x, !, !!, % (mod), npk, nck, |expr|, (expr) or [expr] and these functions:\n"<<
-        "    root(denominator, enumerator), log(base,value), mean(arg,arg,arg,...), rndint(arg1,arg2)\n"<<
+        "    root(denominator, enumerator), log(base,value), mean(arg,arg,arg,...), rndint(arg1,arg2), rndsel(arg,arg,arg,...), least(arg,arg,arg,...), greatest(arg,arg,arg,...)\n"<<
         "    sin, cos, tan, sec, cosec, cot, arcsin, arccos, arctan, arcsec, arccosec, arccot\n"<<
         "    sinh, cosh, tanh, sech, cosech, coth, arcsinh, arccosh, arctanh, arcsech, arccosech, arccoth\n"<<
         "    floor, ceil, round, abs, ln\n\n";
@@ -837,139 +876,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
 
     for(size_t i{}; i<input.length(); i++)
     {
-        if(input.at(i)=='+') currentToken='+';
-        else if (input.at(i)=='-') currentToken='-';
-        else if (input.at(i)=='^') currentToken='^';
-        else if (input.at(i)=='/') currentToken='/';
-        else if (input.at(i)=='%') currentToken='%';
-        else if (input.find("mod",i)==i) {currentToken="mod"; i+=2;}
-        else if (input.find("npk",i)==i) {currentToken="npk"; i+=2;}
-        else if (input.find("nck",i)==i) {currentToken="nck"; i+=2;}
-        else if (input.find("npr",i)==i) {currentToken="npk"; i+=2;}
-        else if (input.find("ncr",i)==i) {currentToken="nck"; i+=2;}
-        else if (input.find("ans",i)==i) {currentToken=lastSeenResult; i+=2;}
 
-        //Functions
-
-        else if (input.find("asinh",i)==i) {currentToken="asinh"; i+=4;}
-        else if (input.find("acosh",i)==i) {currentToken="acosh"; i+=4;}
-        else if (input.find("atanh",i)==i) {currentToken="atanh"; i+=4;}
-
-        else if (input.find("asech",i)==i) {currentToken="asech"; i+=4;}
-        else if (input.find("acsch",i)==i) {currentToken="acsch"; i+=4;}
-        else if (input.find("acoth",i)==i) {currentToken="acoth"; i+=4;}
-
-        else if (input.find("arcsech",i)==i) {currentToken="asech"; i+=6;} //Alias
-        else if (input.find("arccsch",i)==i) {currentToken="acsch"; i+=6;} //Alias
-        else if (input.find("arccosech",i)==i) {currentToken="acsch"; i+=8;} //Alias
-        else if (input.find("arccosecanth",i)==i) {currentToken="acsch"; i+=11;} //Alias
-        else if (input.find("acosech",i)==i) {currentToken="acsch"; i+=6;} //Alias
-        else if (input.find("arccoth",i)==i) {currentToken="acoth"; i+=6;} //Alias
-        else if (input.find("arcsinh",i)==i) {currentToken="asinh"; i+=6;} //Alias
-        else if (input.find("arccosh",i)==i) {currentToken="acosh"; i+=6;} //Alias
-        else if (input.find("arctanh",i)==i) {currentToken="atanh"; i+=6;} //Alias
-
-        else if (input.find("asec",i)==i) {currentToken="asec"; i+=3;}
-        else if (input.find("acsc",i)==i) {currentToken="acsc"; i+=3;}
-        else if (input.find("acot",i)==i) {currentToken="acot"; i+=3;}
-        else if (input.find("arcsec",i)==i) {currentToken="asec"; i+=5;} //Alias
-        else if (input.find("arcsecant",i)==i) {currentToken="asec"; i+=8;} //Alias
-        else if (input.find("arccsc",i)==i) {currentToken="acsc"; i+=5;} //Alias
-        else if (input.find("acosec",i)==i) {currentToken="acsc"; i+=5;} //Alias
-        else if (input.find("arccosec",i)==i) {currentToken="acsc"; i+=7;} //Alias
-        else if (input.find("arccosecant",i)==i) {currentToken="acsc"; i+=10;} //Alias
-        else if (input.find("arccot",i)==i) {currentToken="acot"; i+=5;} //Alias
-
-        else if (input.find("arcsin",i)==i) {currentToken="asin"; i+=5;} //Alias
-        else if (input.find("arccos",i)==i) {currentToken="acos"; i+=5;} //Alias
-        else if (input.find("arctan",i)==i) {currentToken="atan"; i+=5;} //Alias
-        else if (input.find("asin",i)==i) {currentToken="asin"; i+=3;}
-        else if (input.find("acos",i)==i) {currentToken="acos"; i+=3;}
-        else if (input.find("atan",i)==i) {currentToken="atan"; i+=3;}
-
-        else if (input.find("sinh",i)==i) {currentToken="sinh"; i+=3;}
-        else if (input.find("cosh",i)==i) {currentToken="cosh"; i+=3;}
-        else if (input.find("tanh",i)==i) {currentToken="tanh"; i+=3;}
-
-        else if (input.find("sech",i)==i) {currentToken="sech"; i+=3;}
-        else if (input.find("csch",i)==i) {currentToken="csch"; i+=3;}
-        else if (input.find("coth",i)==i) {currentToken="coth"; i+=3;}
-        else if (input.find("cosech",i)==i) {currentToken="csch"; i+=5;} //Alias
-        else if (input.find("cotanh",i)==i) {currentToken="coth"; i+=5;} //Alias
-
-        else if (input.find("sec",i)==i) {currentToken="sec"; i+=2;}
-        else if (input.find("csc",i)==i) {currentToken="csc"; i+=2;}
-        else if (input.find("cosec",i)==i) {currentToken="csc"; i+=4;} //Alias
-        else if (input.find("cot",i)==i) {currentToken="cot"; i+=2;}
-        else if (input.find("cotan",i)==i) {currentToken="cot"; i+=4;} //Alias
-
-        else if (input.find("sin",i)==i) {currentToken="sin"; i+=2;}
-        else if (input.find("cos",i)==i) {currentToken="cos"; i+=2;}
-        else if (input.find("tan",i)==i) {currentToken="tan"; i+=2;}
-
-        else if (input.find("ln",i)==i) {currentToken="ln"; i++;}
-        else if (input.find("abs",i)==i) {currentToken="abs"; i+=2;}
-        else if (input.find("floor",i)==i) {currentToken="floor"; i+=4;}
-        else if (input.find("ceil",i)==i) {currentToken="ceil"; i+=3;}
-        else if (input.find("round",i)==i) {currentToken="round"; i+=4;}
-        
-        //Variable
-        else if (input.at(i)=='x') currentToken='x';
-        
-        //Constants
-        else if (input.find("rndint",i)==i && input.find("rndint(",i)!=i) {currentToken="rndint"; i+=5;} //Not really a constant but treated like one
-        else if (input.find("rnd",i)==i && input.find("rndint(",i)!=i) {currentToken="rnd"; i+=2;}       //Not really a constant but treated like one
-        else if (input.find("pi",i)==i) {currentToken="pi"; i++;}
-        else if (input.find("inf",i)==i) {currentToken="inf"; i+=2;}
-        else if (input.find("prc",i)==i) {currentToken="prc"; i+=2;}
-        else if (input.find("ppc",i)==i) {currentToken="prc"; i+=2;} //Alias
-        else if (input.find("ppm",i)==i) {currentToken="ppm"; i+=2;}
-        else if (input.find("ppb",i)==i) {currentToken="ppb"; i+=2;}
-        else if (input.find("ppt",i)==i) {currentToken="ppt"; i+=2;}
-        else if (input.find("rad",i)==i) {currentToken="rad"; i+=2;}
-        else if (input.find("deg",i)==i) {currentToken="deg"; i+=2;}
-        else if (input.find("drg",i)==i) {currentToken="deg"; i+=2;} //Weird alias
-        else if (input.find("dgr",i)==i) {currentToken="deg"; i+=2;} //Alias
-        else if (input.find("tau",i)==i) {currentToken="tau"; i+=2;}
-        else if(input.find("phi",i)==i) {currentToken="phi"; i+=2;}
-        else if(input.find("eul", i)==i) {currentToken="eul"; i+=2;}
-        else if (input.find("H0", i)==i) {currentToken="H0"; i++;}
-        else if (input.find("E0", i)==i) {currentToken="E0"; i++;}
-        else if (input.find("Z0", i)==i) {currentToken="Z0"; i++;}
-        else if (input.find("U0", i)==i) {currentToken="U0"; i++;}
-        else if (input.find("me", i)==i && input.find("mean(", i)!=i) {currentToken="me"; i++;}
-        else if (input.find("ma", i)==i) {currentToken="ma"; i++;}
-        else if (input.find("ec", i)==i) {currentToken="ec"; i++;}
-        else if (input.find("Na", i)==i) {currentToken="Na"; i++;}
-        else if (input.at(i)=='e') currentToken='e';
-        else if (input.at(i)=='a') currentToken='a';
-        else if (input.at(i)=='c') currentToken='c';
-        else if (input.at(i)=='G') currentToken='G';
-        else if (input.at(i)=='g') currentToken='g';
-        else if (input.at(i)=='h') currentToken='h';
-        else if (input.at(i)=='k') currentToken='k';
-        else if (input.at(i)=='R') currentToken='R';
-        else if (input.at(i)=='o') currentToken='o';
-        else if (input.at(i)=='!')
-        {
-            currentToken='!';
-            if(input.length()>i+1) if(input.at(i+1)=='!')
-            {
-                currentToken="!!";
-                i++;
-            }
-        }
-        else if (input.at(i)=='*')
-        {
-            currentToken="*";
-            if(input.length()>i+1) if(input.at(i+1)=='*')
-            {
-                currentToken="**";
-                i++;
-            }
-        }
-
-            
         //Parse |x|... or ||x|| if the user hates me... or ||||x||||. whatever.
         if(currentToken=="" && input.at(i)=='|') for(startOfFunction=i; i<input.length(); i++)
         {
@@ -1103,6 +1010,84 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             }
         }
 
+        //Parse greatest()
+        if(currentToken=="" && !inFunctionCall && input.find("greatest(", i)==i) for(; i<input.length(); i++)
+        {
+            if(!inFunctionCall)
+            {
+                currentToken.append("greatest(");
+                i+=9;
+                inFunctionCall=true;
+                if(i==input.length()) continue;
+                nestingLevel++;
+            }
+            if(input.at(i)==')') nestingLevel--;
+            else if(input.at(i)=='(') nestingLevel++;
+            currentToken.push_back(input.at(i));
+            if((i==input.length()-2 && input.at(i)==',' && input.at(i+1)==')') || (input.at(i-1)==',' && input.at(i)==',') || (nestingLevel==0 && input.at(i-1)==',')) //Check for some bad argument cases
+            {
+                currentToken.clear();
+                continue;
+            }
+            if(nestingLevel==0 || i==input.length()-1)
+            {
+                tokens.emplace_back(currentToken);
+                break;
+            }
+        }
+
+        //Parse least()
+        if(currentToken=="" && !inFunctionCall && input.find("least(", i)==i) for(; i<input.length(); i++)
+        {
+            if(!inFunctionCall)
+            {
+                currentToken.append("least(");
+                i+=6;
+                inFunctionCall=true;
+                if(i==input.length()) continue;
+                nestingLevel++;
+            }
+            if(input.at(i)==')') nestingLevel--;
+            else if(input.at(i)=='(') nestingLevel++;
+            currentToken.push_back(input.at(i));
+            if((i==input.length()-2 && input.at(i)==',' && input.at(i+1)==')') || (input.at(i-1)==',' && input.at(i)==',') || (nestingLevel==0 && input.at(i-1)==',')) //Check for some bad argument cases
+            {
+                currentToken.clear();
+                continue;
+            }
+            if(nestingLevel==0 || i==input.length()-1)
+            {
+                tokens.emplace_back(currentToken);
+                break;
+            }
+        }
+
+        //Parse rndsel()
+        if(currentToken=="" && !inFunctionCall && input.find("rndsel(", i)==i) for(; i<input.length(); i++)
+        {
+            if(!inFunctionCall)
+            {
+                currentToken.append("rndsel(");
+                i+=7;
+                inFunctionCall=true;
+                if(i==input.length()) continue;
+                nestingLevel++;
+            }
+            if(input.at(i)==')') nestingLevel--;
+            else if(input.at(i)=='(') nestingLevel++;
+            currentToken.push_back(input.at(i));
+            if((i==input.length()-2 && input.at(i)==',' && input.at(i+1)==')') || (input.at(i-1)==',' && input.at(i)==',') || (nestingLevel==0 && input.at(i-1)==',')) //Check for some bad argument cases
+            {
+                currentToken.clear();
+                continue;
+            }
+            if(nestingLevel==0 || i==input.length()-1)
+            {
+                tokens.emplace_back(currentToken);
+                break;
+            }
+        }
+
         //Parse rndint()
         uint argCount{1};
         if(currentToken=="" && !inFunctionCall && input.find("rndint(", i)==i) for(; i<input.length(); i++)
@@ -1149,6 +1134,138 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             else if(input.at(i)=='(') nestingLevel++;
             currentToken.push_back(input.at(i));
             if(nestingLevel==0 || i==input.length()-1) break;                
+        }
+
+        if(input.at(i)=='+') currentToken='+';
+        else if (input.at(i)=='-') currentToken='-';
+        else if (input.at(i)=='^') currentToken='^';
+        else if (input.at(i)=='/') currentToken='/';
+        else if (input.at(i)=='%') currentToken='%';
+        else if (input.find("mod",i)==i) {currentToken="mod"; i+=2;}
+        else if (input.find("npk",i)==i) {currentToken="npk"; i+=2;}
+        else if (input.find("nck",i)==i) {currentToken="nck"; i+=2;}
+        else if (input.find("npr",i)==i) {currentToken="npk"; i+=2;}
+        else if (input.find("ncr",i)==i) {currentToken="nck"; i+=2;}
+        else if (input.find("ans",i)==i) {currentToken=lastSeenResult; i+=2;}
+
+        //Functions
+
+        else if (input.find("asinh",i)==i) {currentToken="asinh"; i+=4;}
+        else if (input.find("acosh",i)==i) {currentToken="acosh"; i+=4;}
+        else if (input.find("atanh",i)==i) {currentToken="atanh"; i+=4;}
+
+        else if (input.find("asech",i)==i) {currentToken="asech"; i+=4;}
+        else if (input.find("acsch",i)==i) {currentToken="acsch"; i+=4;}
+        else if (input.find("acoth",i)==i) {currentToken="acoth"; i+=4;}
+
+        else if (input.find("arcsech",i)==i) {currentToken="asech"; i+=6;} //Alias
+        else if (input.find("arccsch",i)==i) {currentToken="acsch"; i+=6;} //Alias
+        else if (input.find("arccosech",i)==i) {currentToken="acsch"; i+=8;} //Alias
+        else if (input.find("arccosecanth",i)==i) {currentToken="acsch"; i+=11;} //Alias
+        else if (input.find("acosech",i)==i) {currentToken="acsch"; i+=6;} //Alias
+        else if (input.find("arccoth",i)==i) {currentToken="acoth"; i+=6;} //Alias
+        else if (input.find("arcsinh",i)==i) {currentToken="asinh"; i+=6;} //Alias
+        else if (input.find("arccosh",i)==i) {currentToken="acosh"; i+=6;} //Alias
+        else if (input.find("arctanh",i)==i) {currentToken="atanh"; i+=6;} //Alias
+
+        else if (input.find("asec",i)==i) {currentToken="asec"; i+=3;}
+        else if (input.find("acsc",i)==i) {currentToken="acsc"; i+=3;}
+        else if (input.find("acot",i)==i) {currentToken="acot"; i+=3;}
+        else if (input.find("arcsec",i)==i) {currentToken="asec"; i+=5;} //Alias
+        else if (input.find("arcsecant",i)==i) {currentToken="asec"; i+=8;} //Alias
+        else if (input.find("arccsc",i)==i) {currentToken="acsc"; i+=5;} //Alias
+        else if (input.find("acosec",i)==i) {currentToken="acsc"; i+=5;} //Alias
+        else if (input.find("arccosec",i)==i) {currentToken="acsc"; i+=7;} //Alias
+        else if (input.find("arccosecant",i)==i) {currentToken="acsc"; i+=10;} //Alias
+        else if (input.find("arccot",i)==i) {currentToken="acot"; i+=5;} //Alias
+
+        else if (input.find("arcsin",i)==i) {currentToken="asin"; i+=5;} //Alias
+        else if (input.find("arccos",i)==i) {currentToken="acos"; i+=5;} //Alias
+        else if (input.find("arctan",i)==i) {currentToken="atan"; i+=5;} //Alias
+        else if (input.find("asin",i)==i) {currentToken="asin"; i+=3;}
+        else if (input.find("acos",i)==i) {currentToken="acos"; i+=3;}
+        else if (input.find("atan",i)==i) {currentToken="atan"; i+=3;}
+
+        else if (input.find("sinh",i)==i) {currentToken="sinh"; i+=3;}
+        else if (input.find("cosh",i)==i) {currentToken="cosh"; i+=3;}
+        else if (input.find("tanh",i)==i) {currentToken="tanh"; i+=3;}
+
+        else if (input.find("sech",i)==i) {currentToken="sech"; i+=3;}
+        else if (input.find("csch",i)==i) {currentToken="csch"; i+=3;}
+        else if (input.find("coth",i)==i) {currentToken="coth"; i+=3;}
+        else if (input.find("cosech",i)==i) {currentToken="csch"; i+=5;} //Alias
+        else if (input.find("cotanh",i)==i) {currentToken="coth"; i+=5;} //Alias
+
+        else if (input.find("sec",i)==i) {currentToken="sec"; i+=2;}
+        else if (input.find("csc",i)==i) {currentToken="csc"; i+=2;}
+        else if (input.find("cosec",i)==i) {currentToken="csc"; i+=4;} //Alias
+        else if (input.find("cot",i)==i) {currentToken="cot"; i+=2;}
+        else if (input.find("cotan",i)==i) {currentToken="cot"; i+=4;} //Alias
+
+        else if (input.find("sin",i)==i) {currentToken="sin"; i+=2;}
+        else if (input.find("cos",i)==i) {currentToken="cos"; i+=2;}
+        else if (input.find("tan",i)==i) {currentToken="tan"; i+=2;}
+
+        else if (input.find("ln",i)==i) {currentToken="ln"; i++;}
+        else if (input.find("abs",i)==i) {currentToken="abs"; i+=2;}
+        else if (input.find("floor",i)==i) {currentToken="floor"; i+=4;}
+        else if (input.find("ceil",i)==i) {currentToken="ceil"; i+=3;}
+        else if (input.find("round",i)==i) {currentToken="round"; i+=4;}
+        
+        //Variable
+        else if (input.at(i)=='x') currentToken='x';
+        
+        //Constants
+        else if (input.find("rndint",i)==i && input.find("rndint(",i)!=i) {currentToken="rndint"; i+=5;} //Not really a constant but treated like one
+        else if (input.find("rnd",i)==i && input.find("rndint(",i)!=i) {currentToken="rnd"; i+=2;}       //Not really a constant but treated like one
+        else if (input.find("pi",i)==i) {currentToken="pi"; i++;}
+        else if (input.find("inf",i)==i) {currentToken="inf"; i+=2;}
+        else if (input.find("prc",i)==i) {currentToken="prc"; i+=2;}
+        else if (input.find("ppc",i)==i) {currentToken="prc"; i+=2;} //Alias
+        else if (input.find("ppm",i)==i) {currentToken="ppm"; i+=2;}
+        else if (input.find("ppb",i)==i) {currentToken="ppb"; i+=2;}
+        else if (input.find("ppt",i)==i) {currentToken="ppt"; i+=2;}
+        else if (input.find("rad",i)==i) {currentToken="rad"; i+=2;}
+        else if (input.find("deg",i)==i) {currentToken="deg"; i+=2;}
+        else if (input.find("drg",i)==i) {currentToken="deg"; i+=2;} //Weird alias
+        else if (input.find("dgr",i)==i) {currentToken="deg"; i+=2;} //Alias
+        else if (input.find("tau",i)==i) {currentToken="tau"; i+=2;}
+        else if(input.find("phi",i)==i) {currentToken="phi"; i+=2;}
+        else if(input.find("eul", i)==i) {currentToken="eul"; i+=2;}
+        else if (input.find("H0", i)==i) {currentToken="H0"; i++;}
+        else if (input.find("E0", i)==i) {currentToken="E0"; i++;}
+        else if (input.find("Z0", i)==i) {currentToken="Z0"; i++;}
+        else if (input.find("U0", i)==i) {currentToken="U0"; i++;}
+        else if (input.find("me", i)==i && input.find("mean(", i)!=i) {currentToken="me"; i++;}
+        else if (input.find("ma", i)==i) {currentToken="ma"; i++;}
+        else if (input.find("ec", i)==i) {currentToken="ec"; i++;}
+        else if (input.find("Na", i)==i) {currentToken="Na"; i++;}
+        else if (input.at(i)=='e') currentToken='e';
+        else if (input.at(i)=='a') currentToken='a';
+        else if (input.at(i)=='c') currentToken='c';
+        else if (input.at(i)=='G') currentToken='G';
+        else if (input.at(i)=='g') currentToken='g';
+        else if (input.at(i)=='h') currentToken='h';
+        else if (input.at(i)=='k') currentToken='k';
+        else if (input.at(i)=='R') currentToken='R';
+        else if (input.at(i)=='o') currentToken='o';
+        else if (input.at(i)=='!')
+        {
+            currentToken='!';
+            if(input.length()>i+1) if(input.at(i+1)=='!')
+            {
+                currentToken="!!";
+                i++;
+            }
+        }
+        else if (input.at(i)=='*')
+        {
+            currentToken="*";
+            if(input.length()>i+1) if(input.at(i+1)=='*')
+            {
+                currentToken="**";
+                i++;
+            }
         }
 
         if(currentToken=="") for(; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || (i<input.length()-1 && input.at(i)=='.' && std::isdigit(input.at(i+1))) || (i>0 && std::isdigit(input.at(i-1)) && input.at(i)=='e' && currentToken!="e" && i<input.length()-2 && (input.at(i+1)=='+' || input.at(i+1)=='-') && std::isdigit(input.at(i+2)))); i++)
@@ -1337,15 +1454,27 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
                 {
                     evaluatedSubexpr=calculation(getTokens(tokens.at(i).value()), xValue);
                 }
-                else if(tokens.at(i).type()==token_t::MEANARG)
+                else if(tokens.at(i).type()==token_t::MEAN)
                 {
                     evaluatedSubexpr=evaluateMean(tokens.at(i), xValue);
                 }
-                else if(tokens.at(i).type()==token_t::RNDINTARG)
+                else if(tokens.at(i).type()==token_t::GREATEST)
+                {
+                    evaluatedSubexpr=evaluateGreatest(tokens.at(i), xValue);
+                }
+                else if(tokens.at(i).type()==token_t::LEAST)
+                {
+                    evaluatedSubexpr=evaluateLeast(tokens.at(i), xValue);
+                }
+                else if(tokens.at(i).type()==token_t::RNDSEL)
+                {
+                    evaluatedSubexpr=evaluateRndsel(tokens.at(i), xValue);
+                }
+                else if(tokens.at(i).type()==token_t::RNDINT)
                 {
                     evaluatedSubexpr=evaluateRndint(tokens.at(i), xValue);
                 }
-                else if(tokens.at(i).type()==token_t::ABSARG)
+                else if(tokens.at(i).type()==token_t::ABS)
                 {
                     evaluatedSubexpr=evaluateAbs(tokens.at(i), xValue);
                 }
@@ -1612,6 +1741,81 @@ cpp_dec_float_100 evaluateRndint(token &arg, const cpp_dec_float_100 xValue)
 
     std::uniform_int_distribution<> intDist(static_cast<int>(std::round(intermediateResults.at(0))),static_cast<int>(std::round(intermediateResults.at(1))));
     return intDist(randomMt);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+cpp_dec_float_100 evaluateRndsel(token &arg, const cpp_dec_float_100 xValue)
+{
+    std::vector<cpp_dec_float_100> intermediateResults;
+    std::string currentToken;
+    int nestingLevel{};
+    for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
+    {
+        if(arg.value().at(i)=='(') nestingLevel++;
+        else if(arg.value().at(i)==')') nestingLevel--;
+        if(nestingLevel<0) break;
+        if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
+        else
+        {
+            intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+            currentToken.clear();
+        }
+    }
+
+    if(currentToken!="") intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+    std::uniform_int_distribution<> intDist(0, intermediateResults.size()-1);
+    return intermediateResults.at(intDist(randomMt));
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+cpp_dec_float_100 evaluateGreatest(token &arg, const cpp_dec_float_100 xValue)
+{
+    std::vector<cpp_dec_float_100> intermediateResults;
+    std::string currentToken;
+    int nestingLevel{};
+    for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
+    {
+        if(arg.value().at(i)=='(') nestingLevel++;
+        else if(arg.value().at(i)==')') nestingLevel--;
+        if(nestingLevel<0) break;
+        if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
+        else
+        {
+            intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+            currentToken.clear();
+        }
+    }
+
+    if(currentToken!="") intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+    for(size_t i{}; i<intermediateResults.size(); i++) if(intermediateResults.at(i)>intermediateResults.at(0)) intermediateResults.at(0)=intermediateResults.at(i);
+    return intermediateResults.at(0);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+cpp_dec_float_100 evaluateLeast(token &arg, const cpp_dec_float_100 xValue)
+{
+    std::vector<cpp_dec_float_100> intermediateResults;
+    std::string currentToken;
+    int nestingLevel{};
+    for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
+    {
+        if(arg.value().at(i)=='(') nestingLevel++;
+        else if(arg.value().at(i)==')') nestingLevel--;
+        if(nestingLevel<0) break;
+        if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
+        else
+        {
+            intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+            currentToken.clear();
+        }
+    }
+
+    if(currentToken!="") intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+    for(size_t i{}; i<intermediateResults.size(); i++) if(intermediateResults.at(i)<intermediateResults.at(0)) intermediateResults.at(0)=intermediateResults.at(i);
+    return intermediateResults.at(0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
