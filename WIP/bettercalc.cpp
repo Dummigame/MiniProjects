@@ -1196,8 +1196,6 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
     static bool invalidExpressionSeen{};
     if(resetInvalid) invalidExpressionSeen=false;
     if(tokens.size()==0) return 0;
-    if(tokens.size()==1 && tokens.at(0).typeCategory()==tokenCategory_t::NUMBER) return tokens.at(0).number(xValue);
-    if(tokens.size()==1 && tokens.at(0).type()==token_t::INVALID) return NAN;
     std::ostringstream resultAsOSStream;
     resultAsOSStream.precision(100);
 
@@ -1209,7 +1207,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
             std::uniform_real_distribution<> longDoubleDist(0,1);
             resultAsOSStream<<longDoubleDist(randomMt);
             std::string randomAsStr {resultAsOSStream.str()};
-            if(tokens.at(i).value()=="rndint")
+            if(tokens.at(i).value()=="rndint") // To get random integers, it literally deletes the decimal point
             {
                 for(uint i{}; i<randomAsStr.length(); i++)
                 {
@@ -1225,7 +1223,8 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
             resultAsOSStream.clear();
         }
     }
-
+    if(tokens.size()==1 && tokens.at(0).typeCategory()==tokenCategory_t::NUMBER) return tokens.at(0).number(xValue);
+    if(tokens.size()==1 && tokens.at(0).type()==token_t::INVALID) return NAN;
     for(uint i{1}; i<tokens.size(); i++)
     {
         if(tokens.at(i).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).type()==token_t::UNARYOP && tokens.at(i-1).value()!="-" || tokens.at(i-1).type()==token_t::MULTICHARUNARY))
