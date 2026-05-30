@@ -50,6 +50,7 @@ enum class token_t
     ROOTARGRIGHT,
     ROOTARGLEFT,
     MEANARG,
+    RNDINTARG,
     ABSARG,
     LOGARGRIGHT,
     LOGARGLEFT,
@@ -127,6 +128,7 @@ class token
         else if(isSubexpr(value)) return token_t::SUBEXPR;
         else if(isAbsArg(value)) return token_t::ABSARG;
         else if(isMeanArg(value)) return token_t::MEANARG;
+        else if(isRndintArg(value)) return token_t::RNDINTARG;
         else if(value=="x") return token_t::VARIABLE;
         return token_t::INVALID;
     }
@@ -224,15 +226,25 @@ class token
     {
         if((input.at(0)!='|' || input.at(input.length()-1)!='|')&&input.find("abs(")!=0) return false;
         
-        if(input.at(0)=='|') for(uint i{1}; i<input.length()-1; i++) tokenValue.push_back(input.at(i));
-        else for(uint i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
+        if(input.at(0)=='|') for(size_t i{1}; i<input.length()-1; i++) tokenValue.push_back(input.at(i));
+        else for(size_t i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
         return true;
     }    
     ///////////////////////////////////////////////
     bool isMeanArg(std::string &input)
     {
         if(input.find("mean(")!=0) return false;
-        for(uint i{5}; i<input.length(); i++)
+        for(size_t i{5}; i<input.length(); i++)
+        {
+            tokenValue.push_back(input.at(i));
+        }
+        return true;
+    }  
+    ///////////////////////////////////////////////
+    bool isRndintArg(std::string &input)
+    {
+        if(input.find("rndint(")!=0) return false;
+        for(size_t i{7}; i<input.length(); i++)
         {
             tokenValue.push_back(input.at(i));
         }
@@ -243,7 +255,7 @@ class token
     {
         if(input.find("root,")!=0) return false;
         
-        for(uint i{5}; i<input.length(); i++)
+        for(size_t i{5}; i<input.length(); i++)
         {
             tokenValue.push_back(input.at(i));
         }
@@ -254,7 +266,7 @@ class token
     {
         if(input.find("root(") != 0) return false;
         
-        for(uint i{5}; i<input.length(); i++)
+        for(size_t i{5}; i<input.length(); i++)
         {
             tokenValue.push_back(input.at(i));
         }
@@ -265,7 +277,7 @@ class token
     {
         if(input.find("log,")!=0) return false;
         
-        for(uint i{4}; i<input.length(); i++)
+        for(size_t i{4}; i<input.length(); i++)
         {
             tokenValue.push_back(input.at(i));
         }
@@ -276,7 +288,7 @@ class token
     {
         if(input.find("log(") != 0) return false;
         
-        for(uint i{4}; i<input.length(); i++)
+        for(size_t i{4}; i<input.length(); i++)
         {
             tokenValue.push_back(input.at(i));
         }
@@ -334,7 +346,7 @@ class token
         if(type==token_t::NUMBER || type==token_t::VARIABLE || type==token_t::CONSTANT) return tokenCategory_t::NUMBER;
         else if(type==token_t::SUBEXPR ||
                 type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT || type==token_t::ABSARG||
-                type==token_t::LOGARGLEFT || type==token_t::LOGARGRIGHT || type==token_t::MEANARG) return tokenCategory_t::SUBEXPR;
+                type==token_t::LOGARGLEFT || type==token_t::LOGARGRIGHT || type==token_t::MEANARG|| type==token_t::RNDINTARG) return tokenCategory_t::SUBEXPR;
         else if(type==token_t::FUNCTION) return tokenCategory_t::FUNCTION;
         else return tokenCategory_t::OPERATOR;
     }
@@ -362,6 +374,8 @@ class token
             this->tokenValue=asOSStream.str();
             this->tokenType=token_t::NUMBER;
         }
+
+        if(tokenValue=="rnd" || tokenValue=="rndint") return NAN;
 
         if (tokenType != token_t::NUMBER && tokenType != token_t::CONSTANT) return NAN;
         return static_cast<cpp_dec_float_100>(tokenValue);
@@ -394,6 +408,7 @@ cpp_dec_float_100 evaluateLog(token denominatorArg, token &enumeratorArg, const 
 cpp_dec_float_100 evaluateUnary(token&, token&, const cpp_dec_float_100 xValue);
 cpp_dec_float_100 evaluateBinary(token&, token&, token&, const cpp_dec_float_100 xValue);
 cpp_dec_float_100 evaluateMean(token &arg, const cpp_dec_float_100 xValue);
+cpp_dec_float_100 evaluateRndint(token &arg, const cpp_dec_float_100 xValue);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -443,7 +458,7 @@ int main(int argc, char** argv)
             std::cout<<"\ntwenty one.\n";         
             return 0;                       
         }  
-        for(uint i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--);
+        for(size_t i{}; i<equation.length(); i++) if(!(isValidInput(equation.at(i)))) equation.erase(equation.begin()+i--);
         if(equation!="")
         {
             std::cout<<"\nPassed " <<equation<< " as input from command line\n";
@@ -511,7 +526,7 @@ int main(int argc, char** argv)
         }                                 
         passedInAsArg:
 
-        for(uint i{}; i<equation.length(); i++) if(equation.at(i)>='A' && 
+        for(size_t i{}; i<equation.length(); i++) if(equation.at(i)>='A' && 
                                                    equation.at(i)<='Y' && 
                                                    equation.at(i)!='G' && 
                                                    equation.at(i)!='E' && 
@@ -520,7 +535,7 @@ int main(int argc, char** argv)
                                                    equation.at(i)!='N' && 
                                                    equation.at(i)!='H') equation.at(i)=equation.at(i)+32; //'X' -> 'x' ToLower with exceptions
 
-        for(uint i{}; i<equation.length(); i++) if(equation.at(i)<32) equation.erase(i--,1);
+        for(size_t i{}; i<equation.length(); i++) if(equation.at(i)<32) equation.erase(i--,1);
         
         if(equation.find("hist")!=std::string::npos)
         {
@@ -551,7 +566,7 @@ int main(int argc, char** argv)
         }
         int parenthesesImbalance{};
         uint absValueLineCount{};
-        for(uint i{}; i<equation.length(); i++)
+        for(size_t i{}; i<equation.length(); i++)
         {
             if(equation.at(i)=='|') absValueLineCount++;
             if(equation.at(i)=='(') parenthesesImbalance++;
@@ -596,9 +611,9 @@ int main(int argc, char** argv)
             }
             else previousResult=resultAsOSStream.str();
 
-            for(unsigned long int i{}; i<resultAsOSStream.str().length()+2; i++) std::cout <<"=";
+            for(size_t i{}; i<resultAsOSStream.str().length()+2; i++) std::cout <<"=";
             std::cout << "\n " << resultAsOSStream.str() << '\n';
-            for(unsigned long int i{}; i<resultAsOSStream.str().length()+2; i++) std::cout <<"=";
+            for(size_t i{}; i<resultAsOSStream.str().length()+2; i++) std::cout <<"=";
             resultAsOSStream.str("");
             resultAsOSStream.clear();
         }
@@ -636,7 +651,7 @@ int main(int argc, char** argv)
             cpp_dec_float_100 xClosestToZero{DBL_MAX};
             uint xClosestToZeroIndex{INT32_MAX};
             std::vector<point> points;
-            uint i{};
+            size_t i{};
             for(cpp_dec_float_100 xValue=options.xMin; xValue<=options.xMax; xValue+=options.xStep)
             {
                 if(xValue>(-0.0000002) && xValue<0.0000002) xValue=0;
@@ -706,7 +721,7 @@ void graph(const std::vector<point>&points, const cpp_dec_float_100 yMin, const 
     for(uint rows{}; rows<height; rows++)
     {
         if(rows>height/2+1 && yMin>=(height/2+1-rows)*options.xStep) break; //End if bottom of graph reached
-        for(uint i{}; i<length; i++)
+        for(size_t i{}; i<length; i++)
         {
             if(points.at(i).y==INFINITY || points.at(i).y==-INFINITY) return; //This should never trigger.
             
@@ -741,7 +756,7 @@ void graph(const std::vector<point>&points, const cpp_dec_float_100 yMin, const 
         }
     }
 
-    uint i{1};
+    size_t i{1};
     for(; graph.at(i).find('+')==std::string::npos; i++); //Skip until a line with a point (chops off unnecessary lines from top)
 
 
@@ -764,7 +779,7 @@ void displayHelp(char arg)
 
     if(arg=='a' || arg=='f')
         std::cout<<"\nThis calculator takes an expression using numbers, rnd, rndint, ans<prev. result> +, -, *, /, ^ (or **), x, !, !!, % (mod), npk, nck, |expr|, (expr) or [expr] and these functions:\n"<<
-        "    root(denominator, enumerator), log(base,value), mean(arg,arg,arg,...)\n"<<
+        "    root(denominator, enumerator), log(base,value), mean(arg,arg,arg,...), rndint(arg1,arg2)\n"<<
         "    sin, cos, tan, sec, cosec, cot, arcsin, arccos, arctan, arcsec, arccosec, arccot\n"<<
         "    sinh, cosh, tanh, sech, cosech, coth, arcsinh, arccosh, arctanh, arcsech, arccosech, arccoth\n"<<
         "    floor, ceil, round, abs, ln\n\n";
@@ -820,7 +835,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
     bool logHasTwoArgs{};
     int inParentheses{};
 
-    for(uint i{}; i<input.length(); i++)
+    for(size_t i{}; i<input.length(); i++)
     {
         if(input.at(i)=='+') currentToken='+';
         else if (input.at(i)=='-') currentToken='-';
@@ -902,8 +917,8 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
         else if (input.at(i)=='x') currentToken='x';
         
         //Constants
-        else if (input.find("rndint",i)==i) {currentToken="rndint"; i+=5;} //Not really a constant but treated like one
-        else if (input.find("rnd",i)==i) {currentToken="rnd"; i+=2;}       //Not really a constant but treated like one
+        else if (input.find("rndint",i)==i && input.find("rndint(",i)!=i) {currentToken="rndint"; i+=5;} //Not really a constant but treated like one
+        else if (input.find("rnd",i)==i && input.find("rndint(",i)!=i) {currentToken="rnd"; i+=2;}       //Not really a constant but treated like one
         else if (input.find("pi",i)==i) {currentToken="pi"; i++;}
         else if (input.find("inf",i)==i) {currentToken="inf"; i+=2;}
         else if (input.find("prc",i)==i) {currentToken="prc"; i+=2;}
@@ -913,6 +928,8 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
         else if (input.find("ppt",i)==i) {currentToken="ppt"; i+=2;}
         else if (input.find("rad",i)==i) {currentToken="rad"; i+=2;}
         else if (input.find("deg",i)==i) {currentToken="deg"; i+=2;}
+        else if (input.find("drg",i)==i) {currentToken="deg"; i+=2;} //Weird alias
+        else if (input.find("dgr",i)==i) {currentToken="deg"; i+=2;} //Alias
         else if (input.find("tau",i)==i) {currentToken="tau"; i+=2;}
         else if(input.find("phi",i)==i) {currentToken="phi"; i+=2;}
         else if(input.find("eul", i)==i) {currentToken="eul"; i+=2;}
@@ -1074,6 +1091,45 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             if(input.at(i)==')') nestingLevel--;
             else if(input.at(i)=='(') nestingLevel++;
             currentToken.push_back(input.at(i));
+            if((i==input.length()-2 && input.at(i)==',' && input.at(i+1)==')') || (input.at(i-1)==',' && input.at(i)==',') || (nestingLevel==0 && input.at(i-1)==',')) //Check for some bad argument cases
+            {
+                currentToken.clear();
+                continue;
+            }
+            if(nestingLevel==0 || i==input.length()-1)
+            {
+                tokens.emplace_back(currentToken);
+                break;
+            }
+        }
+
+        //Parse rndint()
+        uint argCount{1};
+        if(currentToken=="" && !inFunctionCall && input.find("rndint(", i)==i) for(; i<input.length(); i++)
+        {
+            if(!inFunctionCall)
+            {
+                currentToken.append("rndint(");
+                i+=7;
+                inFunctionCall=true;
+                if(i==input.length()) continue;
+                nestingLevel++;
+            }
+            if(input.at(i)==')') nestingLevel--;
+            else if(input.at(i)=='(') nestingLevel++;
+            currentToken.push_back(input.at(i));
+
+            if(input.at(i)==',' && nestingLevel==1) argCount++;
+            if(argCount>2)
+            {
+                for(; i<input.length() && nestingLevel>0; i++)
+                {
+                    if(input.at(i)==')') nestingLevel--;
+                    else if(input.at(i)=='(') nestingLevel++;                    
+                }
+                break;
+            }
+
             if(((i==input.length()-2 && input.at(i)==',') && input.at(i+1)==')') || (input.at(i-1)==',' && input.at(i)==',') || (nestingLevel==0 && input.at(i-1)==',')) //Check for some bad argument cases
             {
                 currentToken.clear();
@@ -1127,7 +1183,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
 void getVariableArgs(std::vector<token> &tokens, options &options)
 {
     if(tokens.size()==0) return;
-    for(uint i{}; i<tokens.size(); i++)
+    for(size_t i{}; i<tokens.size(); i++)
     {
         if(tokens.at(i).value().find('x')!=std::string::npos) break;
         else if(i==tokens.size()-1) return;
@@ -1199,7 +1255,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
     std::ostringstream resultAsOSStream;
     resultAsOSStream.precision(100);
 
-    for(uint i{}; i<tokens.size(); i++)
+    for(size_t i{}; i<tokens.size(); i++)
     {
         if(tokens.at(i).value()=="rnd" || tokens.at(i).value()=="rndint")
         {
@@ -1209,7 +1265,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
             std::string randomAsStr {resultAsOSStream.str()};
             if(tokens.at(i).value()=="rndint") // To get random integers, it literally deletes the decimal point
             {
-                for(uint i{}; i<randomAsStr.length(); i++)
+                for(size_t i{}; i<randomAsStr.length(); i++)
                 {
                     if(randomAsStr.at(i)=='.')
                     {
@@ -1225,7 +1281,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
     }
     if(tokens.size()==1 && tokens.at(0).typeCategory()==tokenCategory_t::NUMBER) return tokens.at(0).number(xValue);
     if(tokens.size()==1 && tokens.at(0).type()==token_t::INVALID) return NAN;
-    for(uint i{1}; i<tokens.size(); i++)
+    for(size_t i{1}; i<tokens.size(); i++)
     {
         if(tokens.at(i).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).type()==token_t::UNARYOP && tokens.at(i-1).value()!="-" || tokens.at(i-1).type()==token_t::MULTICHARUNARY))
             tokens.emplace(tokens.begin()+i++, token("*"));
@@ -1284,6 +1340,10 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
                 else if(tokens.at(i).type()==token_t::MEANARG)
                 {
                     evaluatedSubexpr=evaluateMean(tokens.at(i), xValue);
+                }
+                else if(tokens.at(i).type()==token_t::RNDINTARG)
+                {
+                    evaluatedSubexpr=evaluateRndint(tokens.at(i), xValue);
                 }
                 else if(tokens.at(i).type()==token_t::ABSARG)
                 {
@@ -1458,13 +1518,14 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
     if(tokens.size()==1 && tokens.at(0).type()==token_t::VARIABLE) return xValue;
     
     if(tokens.size()==1 && (tokens.at(0).type()==token_t::NUMBER|| tokens.at(0).type()==token_t::CONSTANT)) return static_cast<cpp_dec_float_100>(tokens.at(0).value());
+    else if(tokens.size()==1 && tokens.at(0).value()=="nan") return NAN;
     else if(!invalidExpressionSeen)
     {
         std::cerr<<"\nExpression could not be evaluated\n";
         if(tokens.size()>0)
         {
             std::cerr<<"Leftover tokens: ";
-            for(uint i{}; i<tokens.size(); std::cerr<<tokens.at(i++).value());
+            for(size_t i{}; i<tokens.size(); std::cerr<<tokens.at(i++).value()<<' ');
             std::cerr<<"\nEvaluation step: ";
             switch(failedPass)
             {
@@ -1489,6 +1550,7 @@ cpp_dec_float_100 evaluateAbs(token &arg, const cpp_dec_float_100 xValue)
 {
     return abs(calculation(getTokens(arg.value()), xValue));
 }
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 cpp_dec_float_100 evaluateMean(token &arg, const cpp_dec_float_100 xValue)
@@ -1497,7 +1559,7 @@ cpp_dec_float_100 evaluateMean(token &arg, const cpp_dec_float_100 xValue)
     std::vector<cpp_dec_float_100> intermediateResults;
     std::string currentToken;
     int nestingLevel{};
-    for(uint i{}; i<arg.value().length() && nestingLevel>=0; i++)
+    for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
     {
         if(arg.value().at(i)=='(') nestingLevel++;
         else if(arg.value().at(i)==')') nestingLevel--;
@@ -1511,13 +1573,45 @@ cpp_dec_float_100 evaluateMean(token &arg, const cpp_dec_float_100 xValue)
     }
 
     if(currentToken!="") intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue)); //Account for something like mean(3 which is stupid but valid
-    for(uint i{}; i<intermediateResults.size(); i++)
+    for(size_t i{}; i<intermediateResults.size(); i++)
     {
         result+=intermediateResults.at(i);
     }
     result=result/(intermediateResults.size());
 
     return result;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+cpp_dec_float_100 evaluateRndint(token &arg, const cpp_dec_float_100 xValue)
+{
+    std::vector<long double> intermediateResults;
+    std::string currentToken;
+    int nestingLevel{};
+    for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
+    {
+        if(arg.value().at(i)=='(') nestingLevel++;
+        else if(arg.value().at(i)==')') nestingLevel--;
+        if(nestingLevel<0) break;
+        if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
+        else
+        {
+            intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+            currentToken.clear();
+        }
+    }
+    if(currentToken!="") intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+
+    if(intermediateResults.size()!=2)
+    {
+        std::cerr<<"Did not supply 2 arguments for rndint()\n";
+        return NAN;
+    }
+    if(std::round(intermediateResults.at(0)) > std::round(intermediateResults.at(1))) std::swap(intermediateResults.at(0), intermediateResults.at(1));
+
+    std::uniform_int_distribution<> intDist(static_cast<int>(std::round(intermediateResults.at(0))),static_cast<int>(std::round(intermediateResults.at(1))));
+    return intDist(randomMt);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1639,7 +1733,7 @@ cpp_dec_float_100 evaluateUnary(token &numberString, token &operation, const cpp
 
 bool isNumber(const std::string &input)
 {
-    for(uint i{}; i<input.length(); i++) if((input.at(i)<'0' || input.at(i)>'9') && 
+    for(size_t i{}; i<input.length(); i++) if((input.at(i)<'0' || input.at(i)>'9') && 
                                              input.at(i)!='e' && 
                                              input.at(i)!='.' &&
                                              input.at(i)!='+' &&
@@ -1652,7 +1746,7 @@ bool isNumber(const std::string &input)
     if(input=="nan") return true;
     if(input=="-nan") return true;
     if(input=="e") return false;
-    for(uint i{}; i<input.length(); i++)
+    for(size_t i{}; i<input.length(); i++)
     {
         if(input.at(0)=='-') continue;
         if(input.at(i)=='e') 
