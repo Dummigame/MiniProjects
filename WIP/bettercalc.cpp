@@ -1,5 +1,6 @@
 #pragma once
 #include <cctype>
+#include <random>
 #include <cfloat>
 #include <cstdint>
 #include <cfloat>
@@ -15,6 +16,9 @@ bool isValidInput(const char);
 
 using boost::multiprecision::cpp_dec_float_100;
 using boost::math::constants::pi;
+
+std::random_device randev;
+std::mt19937 randomMt(randev());
 
 
 enum drawPos
@@ -45,6 +49,7 @@ enum class token_t
     NUMBER,
     ROOTARGRIGHT,
     ROOTARGLEFT,
+    MEANARG,
     ABSARG,
     LOGARGRIGHT,
     LOGARGLEFT,
@@ -121,6 +126,7 @@ class token
         else if(isLogArgLeft(value)) return token_t::LOGARGLEFT;
         else if(isSubexpr(value)) return token_t::SUBEXPR;
         else if(isAbsArg(value)) return token_t::ABSARG;
+        else if(isMeanArg(value)) return token_t::MEANARG;
         else if(value=="x") return token_t::VARIABLE;
         return token_t::INVALID;
     }
@@ -130,6 +136,8 @@ class token
         return input=="pi" 
             || input=="e" 
             || input=="a" //Is it in the game?
+            || input=="rnd" 
+            || input=="rndint" 
             || input=="ec" 
             || input=="c"
             || input=="R" 
@@ -221,6 +229,16 @@ class token
         return true;
     }    
     ///////////////////////////////////////////////
+    bool isMeanArg(std::string &input)
+    {
+        if(input.find("mean(")!=0) return false;
+        for(uint i{5}; i<input.length(); i++)
+        {
+            tokenValue.push_back(input.at(i));
+        }
+        return true;
+    }  
+    ///////////////////////////////////////////////
     bool isRootArgRight(std::string &input)
     {
         if(input.find("root,")!=0) return false;
@@ -306,6 +324,8 @@ class token
         if(input=="ma") return "1.6605390666e-27";
         if(input=="R") return "8.31446261815";
         if(input=="Na") return "6.02214076e+23";
+        if(input=="rnd") return "rnd"; // These are replaced later
+        if(input=="rndint") return "rndint";
         std::unreachable();
     }
     ///////////////////////////////////////////////
@@ -314,7 +334,7 @@ class token
         if(type==token_t::NUMBER || type==token_t::VARIABLE || type==token_t::CONSTANT) return tokenCategory_t::NUMBER;
         else if(type==token_t::SUBEXPR ||
                 type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT || type==token_t::ABSARG||
-                type==token_t::LOGARGLEFT || type==token_t::LOGARGRIGHT) return tokenCategory_t::SUBEXPR;
+                type==token_t::LOGARGLEFT || type==token_t::LOGARGRIGHT || type==token_t::MEANARG) return tokenCategory_t::SUBEXPR;
         else if(type==token_t::FUNCTION) return tokenCategory_t::FUNCTION;
         else return tokenCategory_t::OPERATOR;
     }
@@ -373,6 +393,7 @@ cpp_dec_float_100 evaluateLog(token denominatorArg, token &enumeratorArg, const 
 
 cpp_dec_float_100 evaluateUnary(token&, token&, const cpp_dec_float_100 xValue);
 cpp_dec_float_100 evaluateBinary(token&, token&, token&, const cpp_dec_float_100 xValue);
+cpp_dec_float_100 evaluateMean(token &arg, const cpp_dec_float_100 xValue);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -473,9 +494,17 @@ int main(int argc, char** argv)
         if(equation.at(0)=='q' || equation.at(0)=='Q' || equation.find("exit")!=std::string::npos || equation.find("quit")!=std::string::npos) break;
         if(equation.at(0)=='?')
         {
-            std::cout<<"\nSelect from 'a'll, 'f'unctionality, 'c'onstants, 'n'otes and 'h'ints:\n=> ";
-            displayHelp(std::cin.get());
-            std::cin.ignore(10000,'\n');
+            if(equation.length()>1 && (equation.at(1)=='a' || equation.at(1)=='f' || equation.at(1)=='c' || equation.at(1)=='n' || equation.at(1)=='h'))
+            {
+                displayHelp(equation.at(1));
+
+            }
+            else
+            {
+                std::cout<<"\nSelect from 'a'll, 'f'unctionality, 'c'onstants, 'n'otes and 'h'ints:\n=> ";
+                displayHelp(std::cin.get());
+                std::cin.ignore(10000,'\n');
+            }
             std::cout<<'\n';
             equation.clear();
             continue;
@@ -734,8 +763,8 @@ void displayHelp(char arg)
     if(arg>='A' && arg<='Z') arg=arg+32; //'X' -> 'x' ToLower
 
     if(arg=='a' || arg=='f')
-        std::cout<<"\nThis calculator takes an equation using numbers, ans<previous result> +, -, *, /, ^ (or **), x, !, !!, % (or mod), npk, nck, |expr|, (expr) or [expr] and these functions:\n"<<
-        "    root(denominator, enumerator), log(base,value)\n"<<
+        std::cout<<"\nThis calculator takes an expression using numbers, rnd, rndint, ans<prev. result> +, -, *, /, ^ (or **), x, !, !!, % (mod), npk, nck, |expr|, (expr) or [expr] and these functions:\n"<<
+        "    root(denominator, enumerator), log(base,value), mean(arg,arg,arg,...)\n"<<
         "    sin, cos, tan, sec, cosec, cot, arcsin, arccos, arctan, arcsec, arccosec, arccot\n"<<
         "    sinh, cosh, tanh, sech, cosech, coth, arcsinh, arccosh, arctanh, arcsech, arccosech, arccoth\n"<<
         "    floor, ceil, round, abs, ln\n\n";
@@ -752,6 +781,7 @@ void displayHelp(char arg)
         "    You may graph an equation if you include at least one instance of x.\n"<<
         "    Enter \"hist\" for a calculation history.\n"<<
         "    Input into trig functions is treated as input in radiants. To input as degrees, use the \"deg\" constant.\n"<<
+        "    Single argument functions may be called without parentheses, however, the interpretation is unorthodox. sin 5x = sin(5)*x, sin 5^2 = sin25\n"<<
         "    You may use the following notation for numbers: 2.5e+5 = 250000 = 2.5*10^5\n"<<
         "    root() and log() may be called with one argument, with defaults for the other. Example: root(4) = 2, log(10) = 1.\n"<<
         "    Input from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them.\n"<<
@@ -800,6 +830,8 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
         else if (input.find("mod",i)==i) {currentToken="mod"; i+=2;}
         else if (input.find("npk",i)==i) {currentToken="npk"; i+=2;}
         else if (input.find("nck",i)==i) {currentToken="nck"; i+=2;}
+        else if (input.find("npr",i)==i) {currentToken="npk"; i+=2;}
+        else if (input.find("ncr",i)==i) {currentToken="nck"; i+=2;}
         else if (input.find("ans",i)==i) {currentToken=lastSeenResult; i+=2;}
 
         //Functions
@@ -870,6 +902,8 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
         else if (input.at(i)=='x') currentToken='x';
         
         //Constants
+        else if (input.find("rndint",i)==i) {currentToken="rndint"; i+=5;} //Not really a constant but treated like one
+        else if (input.find("rnd",i)==i) {currentToken="rnd"; i+=2;}       //Not really a constant but treated like one
         else if (input.find("pi",i)==i) {currentToken="pi"; i++;}
         else if (input.find("inf",i)==i) {currentToken="inf"; i+=2;}
         else if (input.find("prc",i)==i) {currentToken="prc"; i+=2;}
@@ -886,7 +920,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
         else if (input.find("E0", i)==i) {currentToken="E0"; i++;}
         else if (input.find("Z0", i)==i) {currentToken="Z0"; i++;}
         else if (input.find("U0", i)==i) {currentToken="U0"; i++;}
-        else if (input.find("me", i)==i) {currentToken="me"; i++;}
+        else if (input.find("me", i)==i && input.find("mean(", i)!=i) {currentToken="me"; i++;}
         else if (input.find("ma", i)==i) {currentToken="ma"; i++;}
         else if (input.find("ec", i)==i) {currentToken="ec"; i++;}
         else if (input.find("Na", i)==i) {currentToken="Na"; i++;}
@@ -1026,6 +1060,32 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             else if(input.at(i)=='(') nestingLevel++;
         }
 
+        //Parse mean()
+        if(currentToken=="" && !inFunctionCall && input.find("mean(", i)==i) for(; i<input.length(); i++)
+        {
+            if(!inFunctionCall)
+            {
+                currentToken.append("mean(");
+                i+=5;
+                inFunctionCall=true;
+                if(i==input.length()) continue;
+                nestingLevel++;
+            }
+            if(input.at(i)==')') nestingLevel--;
+            else if(input.at(i)=='(') nestingLevel++;
+            currentToken.push_back(input.at(i));
+            if(((i==input.length()-2 && input.at(i)==',') && input.at(i+1)==')') || (input.at(i-1)==',' && input.at(i)==',') || (nestingLevel==0 && input.at(i-1)==',')) //Check for some bad argument cases
+            {
+                currentToken.clear();
+                continue;
+            }
+            if(nestingLevel==0 || i==input.length()-1)
+            {
+                tokens.emplace_back(currentToken);
+                break;
+            }
+        }
+
         //Parse Subexpression
         if(currentToken=="" && !inFunctionCall && input.at(i)=='(') for(; i<input.length(); i++)
         {
@@ -1141,6 +1201,31 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
     std::ostringstream resultAsOSStream;
     resultAsOSStream.precision(100);
 
+    for(uint i{}; i<tokens.size(); i++)
+    {
+        if(tokens.at(i).value()=="rnd" || tokens.at(i).value()=="rndint")
+        {
+            // This probably sucks
+            std::uniform_real_distribution<> longDoubleDist(0,1);
+            resultAsOSStream<<longDoubleDist(randomMt);
+            std::string randomAsStr {resultAsOSStream.str()};
+            if(tokens.at(i).value()=="rndint")
+            {
+                for(uint i{}; i<randomAsStr.length(); i++)
+                {
+                    if(randomAsStr.at(i)=='.')
+                    {
+                        randomAsStr.erase(i,1);
+                        break;
+                    }
+                }
+            }
+            tokens.at(i)=token(randomAsStr);
+            resultAsOSStream.str("");
+            resultAsOSStream.clear();
+        }
+    }
+
     for(uint i{1}; i<tokens.size(); i++)
     {
         if(tokens.at(i).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).type()==token_t::UNARYOP && tokens.at(i-1).value()!="-" || tokens.at(i-1).type()==token_t::MULTICHARUNARY))
@@ -1196,6 +1281,10 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
                 if(tokens.at(i).type()==token_t::SUBEXPR)
                 {
                     evaluatedSubexpr=calculation(getTokens(tokens.at(i).value()), xValue);
+                }
+                else if(tokens.at(i).type()==token_t::MEANARG)
+                {
+                    evaluatedSubexpr=evaluateMean(tokens.at(i), xValue);
                 }
                 else if(tokens.at(i).type()==token_t::ABSARG)
                 {
@@ -1400,6 +1489,36 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
 cpp_dec_float_100 evaluateAbs(token &arg, const cpp_dec_float_100 xValue)
 {
     return abs(calculation(getTokens(arg.value()), xValue));
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+cpp_dec_float_100 evaluateMean(token &arg, const cpp_dec_float_100 xValue)
+{
+    cpp_dec_float_100 result{};
+    std::vector<cpp_dec_float_100> intermediateResults;
+    std::string currentToken;
+    int nestingLevel{};
+    for(uint i{}; i<arg.value().length() && nestingLevel>=0; i++)
+    {
+        if(arg.value().at(i)=='(') nestingLevel++;
+        else if(arg.value().at(i)==')') nestingLevel--;
+        if(nestingLevel<0) break;
+        if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
+        else
+        {
+            intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+            currentToken.clear();
+        }
+    }
+
+    if(currentToken!="") intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue)); //Account for something like mean(3 which is stupid but valid
+    for(uint i{}; i<intermediateResults.size(); i++)
+    {
+        result+=intermediateResults.at(i);
+    }
+    result=result/(intermediateResults.size());
+
+    return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
