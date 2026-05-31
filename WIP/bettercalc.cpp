@@ -1,4 +1,4 @@
-#pragma once
+
 #include <cctype>
 #include <random>
 #include <cfloat>
@@ -11,6 +11,7 @@
 #include <boost/math/constants/constants.hpp>
 #include <sstream>
 #include <boost/multiprecision/cpp_dec_float.hpp>
+#include <type_traits>
 void displayHelp(char arg='a');
 bool isValidInput(const char);
 
@@ -78,9 +79,9 @@ bool isNumber(const std::string &input);
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct point
 {
-    cpp_dec_float_100 x{};
-    cpp_dec_float_100 y{};
-    point(cpp_dec_float_100 inX, cpp_dec_float_100 inY)
+    long double x{};
+    long double y{};
+    point(long double inX, long double inY)
     {
         this->x=inX;
         if(inY==INFINITY || inY==-INFINITY) this->y=NAN;
@@ -400,12 +401,15 @@ class token
         if(tokenValue=="")tokenValue = value;
     }
     ///////////////////////////////////////////////
-    cpp_dec_float_100 number(cpp_dec_float_100 xValue=NAN)
+    template <typename T>
+    T number(T xValue=NAN)
     {
         if(xValue!=NAN && this->tokenType==token_t::VARIABLE)
         {
             std::ostringstream asOSStream;
-            asOSStream.precision(100);
+            if constexpr(std::is_same<T,cpp_dec_float_100>()) asOSStream.precision(100);
+            if constexpr(std::is_same<T, long double>()) asOSStream.precision(17);
+            if constexpr(std::is_same<T, float>()) asOSStream.precision(6);
             asOSStream << xValue;
             this->tokenValue=asOSStream.str();
             this->tokenType=token_t::NUMBER;
@@ -414,7 +418,8 @@ class token
         if(tokenValue=="rnd" || tokenValue=="rndint") return NAN;
 
         if (tokenType != token_t::NUMBER && tokenType != token_t::CONSTANT) return NAN;
-        return static_cast<cpp_dec_float_100>(tokenValue);
+        if constexpr(std::is_same<T,cpp_dec_float_100>()) return static_cast<cpp_dec_float_100>(tokenValue);
+        else return std::stold(tokenValue);
     }
     ///////////////////////////////////////////////
     std::string value()
@@ -435,19 +440,18 @@ class token
 std::vector<token> getTokens(const std::string&, const std::string &previousResult="nan");
 void getVariableArgs(std::vector<token>&, options&);
 void graph(const std::vector<point>&points, const cpp_dec_float_100 yMin, const cpp_dec_float_100 yMax, const uint xClosestToZeroIndex, const options &options);
-cpp_dec_float_100 calculation(std::vector<token>, const cpp_dec_float_100 xValue,const bool resetInvalid=false);
-cpp_dec_float_100 evaluateAbs(token &arg, const cpp_dec_float_100 xValue);
+template <typename T = cpp_dec_float_100> T calculation(std::vector<token>, const T xValue,const bool resetInvalid=false);
+template <typename T = cpp_dec_float_100> T evaluateAbs(token &arg, const T xValue);
 
-cpp_dec_float_100 evaluateRoot(token denominator, token &enumerator, const cpp_dec_float_100 xValue);
-cpp_dec_float_100 evaluateLog(token denominatorArg, token &enumeratorArg, const cpp_dec_float_100 xValue);
+template <typename T = cpp_dec_float_100> T evaluateRoot(token denominator, token &enumerator, const T xValue);
+template <typename T = cpp_dec_float_100> T evaluateLog(token denominatorArg, token &enumeratorArg, const T xValue);
 
-cpp_dec_float_100 evaluateUnary(token&, token&, const cpp_dec_float_100 xValue);
-cpp_dec_float_100 evaluateBinary(token&, token&, token&, const cpp_dec_float_100 xValue);
-cpp_dec_float_100 evaluateMean(token &arg, const cpp_dec_float_100 xValue);
-cpp_dec_float_100 evaluateRndint(token &arg, const cpp_dec_float_100 xValue);
-cpp_dec_float_100 evaluateRndsel(token &arg, const cpp_dec_float_100 xValue);
-cpp_dec_float_100 evaluateGreatest(token &arg, const cpp_dec_float_100 xValue);
-cpp_dec_float_100 evaluateLeast(token &arg, const cpp_dec_float_100 xValue);
+template <typename T = cpp_dec_float_100> T evaluateUnary(token&, token&, const T xValue);
+template <typename T = cpp_dec_float_100> T evaluateBinary(token&, token&, token&, const T xValue);
+template <typename T = cpp_dec_float_100> T evaluateMean(token &arg, const T xValue);
+template <typename T = cpp_dec_float_100> T evaluateRndsel(token &arg, const T xValue);
+template <typename T = cpp_dec_float_100> T evaluateGreatest(token &arg, const T xValue);
+template <typename T = cpp_dec_float_100> T evaluateLeast(token &arg, const T xValue);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -632,7 +636,7 @@ int main(int argc, char** argv)
         }
         if(options.xMin==options.xMax) //No x found
         {
-            resultAsOSStream<<calculation(tokens, NAN);
+            resultAsOSStream<<calculation<cpp_dec_float_100>(tokens, NAN);
 
             if(resultAsOSStream.str().find("nan")!=std::string::npos)
             {
@@ -663,7 +667,7 @@ int main(int argc, char** argv)
             for(cpp_dec_float_100 xValue=options.xMin; xValue<=options.xMax; xValue+=options.xStep)
             {
                 if(xValue>(-0.0000002) && xValue<0.0000002) xValue=0;
-                resultAsOSStream<<calculation(tokens, xValue);
+                resultAsOSStream<<calculation<cpp_dec_float_100>(tokens, xValue);
                 if(resultAsOSStream.str().find("nan")!=std::string::npos)
                 {
                     previousResult="nan";
@@ -691,10 +695,10 @@ int main(int argc, char** argv)
             uint xClosestToZeroIndex{INT32_MAX};
             std::vector<point> points;
             size_t i{};
-            for(cpp_dec_float_100 xValue=options.xMin; xValue<=options.xMax; xValue+=options.xStep)
+            for(long double xValue=static_cast<long double>(options.xMin); xValue<=options.xMax; xValue+=static_cast<long double>(options.xStep))
             {
                 if(xValue>(-0.0000002) && xValue<0.0000002) xValue=0;
-                points.push_back(point(xValue,calculation(tokens,xValue)));
+                points.push_back(point(xValue,calculation<double>(tokens,xValue)));
 
                 if(abs(points.at(i).y)<yClosestToZero)
                 {
@@ -724,7 +728,7 @@ int main(int argc, char** argv)
         options.xMin=0;
         options.xStep=0;
         firstPass=false;
-        calculation(std::vector<token>(),NAN,true); //Reset seenInvalid in calculation, so if an invalid expression is passed on the next iteration, it prints the error text
+        calculation<double>(std::vector<token>(),NAN,true); //Reset seenInvalid in calculation, so if an invalid expression is passed on the next iteration, it prints the error text
         if(passedInAsArg) break;
     }
     std::cout<<'\n';
@@ -890,7 +894,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
                 }
                 inFunctionCall=true;
                 nestingOfFunction=nestingLevel;
-                if(i==input.length()-1) continue;
+                if(i>=input.length()-1) break;
             }
             if(input.at(i)==')')
             {
@@ -1135,139 +1139,140 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             currentToken.push_back(input.at(i));
             if(nestingLevel==0 || i==input.length()-1) break;                
         }
-
-        if(input.at(i)=='+') currentToken='+';
-        else if (input.at(i)=='-') currentToken='-';
-        else if (input.at(i)=='^') currentToken='^';
-        else if (input.at(i)=='/') currentToken='/';
-        else if (input.at(i)=='%') currentToken='%';
-        else if (input.find("mod",i)==i) {currentToken="mod"; i+=2;}
-        else if (input.find("npk",i)==i) {currentToken="npk"; i+=2;}
-        else if (input.find("nck",i)==i) {currentToken="nck"; i+=2;}
-        else if (input.find("npr",i)==i) {currentToken="npk"; i+=2;}
-        else if (input.find("ncr",i)==i) {currentToken="nck"; i+=2;}
-        else if (input.find("ans",i)==i) {currentToken=lastSeenResult; i+=2;}
-
-        //Functions
-
-        else if (input.find("asinh",i)==i) {currentToken="asinh"; i+=4;}
-        else if (input.find("acosh",i)==i) {currentToken="acosh"; i+=4;}
-        else if (input.find("atanh",i)==i) {currentToken="atanh"; i+=4;}
-
-        else if (input.find("asech",i)==i) {currentToken="asech"; i+=4;}
-        else if (input.find("acsch",i)==i) {currentToken="acsch"; i+=4;}
-        else if (input.find("acoth",i)==i) {currentToken="acoth"; i+=4;}
-
-        else if (input.find("arcsech",i)==i) {currentToken="asech"; i+=6;} //Alias
-        else if (input.find("arccsch",i)==i) {currentToken="acsch"; i+=6;} //Alias
-        else if (input.find("arccosech",i)==i) {currentToken="acsch"; i+=8;} //Alias
-        else if (input.find("arccosecanth",i)==i) {currentToken="acsch"; i+=11;} //Alias
-        else if (input.find("acosech",i)==i) {currentToken="acsch"; i+=6;} //Alias
-        else if (input.find("arccoth",i)==i) {currentToken="acoth"; i+=6;} //Alias
-        else if (input.find("arcsinh",i)==i) {currentToken="asinh"; i+=6;} //Alias
-        else if (input.find("arccosh",i)==i) {currentToken="acosh"; i+=6;} //Alias
-        else if (input.find("arctanh",i)==i) {currentToken="atanh"; i+=6;} //Alias
-
-        else if (input.find("asec",i)==i) {currentToken="asec"; i+=3;}
-        else if (input.find("acsc",i)==i) {currentToken="acsc"; i+=3;}
-        else if (input.find("acot",i)==i) {currentToken="acot"; i+=3;}
-        else if (input.find("arcsec",i)==i) {currentToken="asec"; i+=5;} //Alias
-        else if (input.find("arcsecant",i)==i) {currentToken="asec"; i+=8;} //Alias
-        else if (input.find("arccsc",i)==i) {currentToken="acsc"; i+=5;} //Alias
-        else if (input.find("acosec",i)==i) {currentToken="acsc"; i+=5;} //Alias
-        else if (input.find("arccosec",i)==i) {currentToken="acsc"; i+=7;} //Alias
-        else if (input.find("arccosecant",i)==i) {currentToken="acsc"; i+=10;} //Alias
-        else if (input.find("arccot",i)==i) {currentToken="acot"; i+=5;} //Alias
-
-        else if (input.find("arcsin",i)==i) {currentToken="asin"; i+=5;} //Alias
-        else if (input.find("arccos",i)==i) {currentToken="acos"; i+=5;} //Alias
-        else if (input.find("arctan",i)==i) {currentToken="atan"; i+=5;} //Alias
-        else if (input.find("asin",i)==i) {currentToken="asin"; i+=3;}
-        else if (input.find("acos",i)==i) {currentToken="acos"; i+=3;}
-        else if (input.find("atan",i)==i) {currentToken="atan"; i+=3;}
-
-        else if (input.find("sinh",i)==i) {currentToken="sinh"; i+=3;}
-        else if (input.find("cosh",i)==i) {currentToken="cosh"; i+=3;}
-        else if (input.find("tanh",i)==i) {currentToken="tanh"; i+=3;}
-
-        else if (input.find("sech",i)==i) {currentToken="sech"; i+=3;}
-        else if (input.find("csch",i)==i) {currentToken="csch"; i+=3;}
-        else if (input.find("coth",i)==i) {currentToken="coth"; i+=3;}
-        else if (input.find("cosech",i)==i) {currentToken="csch"; i+=5;} //Alias
-        else if (input.find("cotanh",i)==i) {currentToken="coth"; i+=5;} //Alias
-
-        else if (input.find("sec",i)==i) {currentToken="sec"; i+=2;}
-        else if (input.find("csc",i)==i) {currentToken="csc"; i+=2;}
-        else if (input.find("cosec",i)==i) {currentToken="csc"; i+=4;} //Alias
-        else if (input.find("cot",i)==i) {currentToken="cot"; i+=2;}
-        else if (input.find("cotan",i)==i) {currentToken="cot"; i+=4;} //Alias
-
-        else if (input.find("sin",i)==i) {currentToken="sin"; i+=2;}
-        else if (input.find("cos",i)==i) {currentToken="cos"; i+=2;}
-        else if (input.find("tan",i)==i) {currentToken="tan"; i+=2;}
-
-        else if (input.find("ln",i)==i) {currentToken="ln"; i++;}
-        else if (input.find("abs",i)==i) {currentToken="abs"; i+=2;}
-        else if (input.find("floor",i)==i) {currentToken="floor"; i+=4;}
-        else if (input.find("ceil",i)==i) {currentToken="ceil"; i+=3;}
-        else if (input.find("round",i)==i) {currentToken="round"; i+=4;}
-        
-        //Variable
-        else if (input.at(i)=='x') currentToken='x';
-        
-        //Constants
-        else if (input.find("rndint",i)==i && input.find("rndint(",i)!=i) {currentToken="rndint"; i+=5;} //Not really a constant but treated like one
-        else if (input.find("rnd",i)==i && input.find("rndint(",i)!=i) {currentToken="rnd"; i+=2;}       //Not really a constant but treated like one
-        else if (input.find("pi",i)==i) {currentToken="pi"; i++;}
-        else if (input.find("inf",i)==i) {currentToken="inf"; i+=2;}
-        else if (input.find("prc",i)==i) {currentToken="prc"; i+=2;}
-        else if (input.find("ppc",i)==i) {currentToken="prc"; i+=2;} //Alias
-        else if (input.find("ppm",i)==i) {currentToken="ppm"; i+=2;}
-        else if (input.find("ppb",i)==i) {currentToken="ppb"; i+=2;}
-        else if (input.find("ppt",i)==i) {currentToken="ppt"; i+=2;}
-        else if (input.find("rad",i)==i) {currentToken="rad"; i+=2;}
-        else if (input.find("deg",i)==i) {currentToken="deg"; i+=2;}
-        else if (input.find("drg",i)==i) {currentToken="deg"; i+=2;} //Weird alias
-        else if (input.find("dgr",i)==i) {currentToken="deg"; i+=2;} //Alias
-        else if (input.find("tau",i)==i) {currentToken="tau"; i+=2;}
-        else if(input.find("phi",i)==i) {currentToken="phi"; i+=2;}
-        else if(input.find("eul", i)==i) {currentToken="eul"; i+=2;}
-        else if (input.find("H0", i)==i) {currentToken="H0"; i++;}
-        else if (input.find("E0", i)==i) {currentToken="E0"; i++;}
-        else if (input.find("Z0", i)==i) {currentToken="Z0"; i++;}
-        else if (input.find("U0", i)==i) {currentToken="U0"; i++;}
-        else if (input.find("me", i)==i && input.find("mean(", i)!=i) {currentToken="me"; i++;}
-        else if (input.find("ma", i)==i) {currentToken="ma"; i++;}
-        else if (input.find("ec", i)==i) {currentToken="ec"; i++;}
-        else if (input.find("Na", i)==i) {currentToken="Na"; i++;}
-        else if (input.at(i)=='e') currentToken='e';
-        else if (input.at(i)=='a') currentToken='a';
-        else if (input.at(i)=='c') currentToken='c';
-        else if (input.at(i)=='G') currentToken='G';
-        else if (input.at(i)=='g') currentToken='g';
-        else if (input.at(i)=='h') currentToken='h';
-        else if (input.at(i)=='k') currentToken='k';
-        else if (input.at(i)=='R') currentToken='R';
-        else if (input.at(i)=='o') currentToken='o';
-        else if (input.at(i)=='!')
+        if(currentToken=="")
         {
-            currentToken='!';
-            if(input.length()>i+1) if(input.at(i+1)=='!')
+            if(input.at(i)=='+') currentToken='+';
+            else if (input.at(i)=='-') currentToken='-';
+            else if (input.at(i)=='^') currentToken='^';
+            else if (input.at(i)=='/') currentToken='/';
+            else if (input.at(i)=='%') currentToken='%';
+            else if (input.find("mod",i)==i) {currentToken="mod"; i+=2;}
+            else if (input.find("npk",i)==i) {currentToken="npk"; i+=2;}
+            else if (input.find("nck",i)==i) {currentToken="nck"; i+=2;}
+            else if (input.find("npr",i)==i) {currentToken="npk"; i+=2;}
+            else if (input.find("ncr",i)==i) {currentToken="nck"; i+=2;}
+            else if (input.find("ans",i)==i) {currentToken=lastSeenResult; i+=2;}
+
+            //Functions
+
+            else if (input.find("asinh",i)==i) {currentToken="asinh"; i+=4;}
+            else if (input.find("acosh",i)==i) {currentToken="acosh"; i+=4;}
+            else if (input.find("atanh",i)==i) {currentToken="atanh"; i+=4;}
+
+            else if (input.find("asech",i)==i) {currentToken="asech"; i+=4;}
+            else if (input.find("acsch",i)==i) {currentToken="acsch"; i+=4;}
+            else if (input.find("acoth",i)==i) {currentToken="acoth"; i+=4;}
+
+            else if (input.find("arcsech",i)==i) {currentToken="asech"; i+=6;} //Alias
+            else if (input.find("arccsch",i)==i) {currentToken="acsch"; i+=6;} //Alias
+            else if (input.find("arccosech",i)==i) {currentToken="acsch"; i+=8;} //Alias
+            else if (input.find("arccosecanth",i)==i) {currentToken="acsch"; i+=11;} //Alias
+            else if (input.find("acosech",i)==i) {currentToken="acsch"; i+=6;} //Alias
+            else if (input.find("arccoth",i)==i) {currentToken="acoth"; i+=6;} //Alias
+            else if (input.find("arcsinh",i)==i) {currentToken="asinh"; i+=6;} //Alias
+            else if (input.find("arccosh",i)==i) {currentToken="acosh"; i+=6;} //Alias
+            else if (input.find("arctanh",i)==i) {currentToken="atanh"; i+=6;} //Alias
+
+            else if (input.find("asec",i)==i) {currentToken="asec"; i+=3;}
+            else if (input.find("acsc",i)==i) {currentToken="acsc"; i+=3;}
+            else if (input.find("acot",i)==i) {currentToken="acot"; i+=3;}
+            else if (input.find("arcsec",i)==i) {currentToken="asec"; i+=5;} //Alias
+            else if (input.find("arcsecant",i)==i) {currentToken="asec"; i+=8;} //Alias
+            else if (input.find("arccsc",i)==i) {currentToken="acsc"; i+=5;} //Alias
+            else if (input.find("acosec",i)==i) {currentToken="acsc"; i+=5;} //Alias
+            else if (input.find("arccosec",i)==i) {currentToken="acsc"; i+=7;} //Alias
+            else if (input.find("arccosecant",i)==i) {currentToken="acsc"; i+=10;} //Alias
+            else if (input.find("arccot",i)==i) {currentToken="acot"; i+=5;} //Alias
+
+            else if (input.find("arcsin",i)==i) {currentToken="asin"; i+=5;} //Alias
+            else if (input.find("arccos",i)==i) {currentToken="acos"; i+=5;} //Alias
+            else if (input.find("arctan",i)==i) {currentToken="atan"; i+=5;} //Alias
+            else if (input.find("asin",i)==i) {currentToken="asin"; i+=3;}
+            else if (input.find("acos",i)==i) {currentToken="acos"; i+=3;}
+            else if (input.find("atan",i)==i) {currentToken="atan"; i+=3;}
+
+            else if (input.find("sinh",i)==i) {currentToken="sinh"; i+=3;}
+            else if (input.find("cosh",i)==i) {currentToken="cosh"; i+=3;}
+            else if (input.find("tanh",i)==i) {currentToken="tanh"; i+=3;}
+
+            else if (input.find("sech",i)==i) {currentToken="sech"; i+=3;}
+            else if (input.find("csch",i)==i) {currentToken="csch"; i+=3;}
+            else if (input.find("coth",i)==i) {currentToken="coth"; i+=3;}
+            else if (input.find("cosech",i)==i) {currentToken="csch"; i+=5;} //Alias
+            else if (input.find("cotanh",i)==i) {currentToken="coth"; i+=5;} //Alias
+
+            else if (input.find("sec",i)==i) {currentToken="sec"; i+=2;}
+            else if (input.find("csc",i)==i) {currentToken="csc"; i+=2;}
+            else if (input.find("cosec",i)==i) {currentToken="csc"; i+=4;} //Alias
+            else if (input.find("cot",i)==i) {currentToken="cot"; i+=2;}
+            else if (input.find("cotan",i)==i) {currentToken="cot"; i+=4;} //Alias
+
+            else if (input.find("sin",i)==i) {currentToken="sin"; i+=2;}
+            else if (input.find("cos",i)==i) {currentToken="cos"; i+=2;}
+            else if (input.find("tan",i)==i) {currentToken="tan"; i+=2;}
+
+            else if (input.find("ln",i)==i) {currentToken="ln"; i++;}
+            else if (input.find("abs",i)==i) {currentToken="abs"; i+=2;}
+            else if (input.find("floor",i)==i) {currentToken="floor"; i+=4;}
+            else if (input.find("ceil",i)==i) {currentToken="ceil"; i+=3;}
+            else if (input.find("round",i)==i) {currentToken="round"; i+=4;}
+            
+            //Variable
+            else if (input.at(i)=='x') currentToken='x';
+            
+            //Constants
+            else if (input.find("rndint",i)==i && input.find("rndint(",i)!=i) {currentToken="rndint"; i+=5;} //Not really a constant but treated like one
+            else if (input.find("rnd",i)==i && input.find("rndint(",i)!=i) {currentToken="rnd"; i+=2;}       //Not really a constant but treated like one
+            else if (input.find("pi",i)==i) {currentToken="pi"; i++;}
+            else if (input.find("inf",i)==i) {currentToken="inf"; i+=2;}
+            else if (input.find("prc",i)==i) {currentToken="prc"; i+=2;}
+            else if (input.find("ppc",i)==i) {currentToken="prc"; i+=2;} //Alias
+            else if (input.find("ppm",i)==i) {currentToken="ppm"; i+=2;}
+            else if (input.find("ppb",i)==i) {currentToken="ppb"; i+=2;}
+            else if (input.find("ppt",i)==i) {currentToken="ppt"; i+=2;}
+            else if (input.find("rad",i)==i) {currentToken="rad"; i+=2;}
+            else if (input.find("deg",i)==i) {currentToken="deg"; i+=2;}
+            else if (input.find("drg",i)==i) {currentToken="deg"; i+=2;} //Weird alias
+            else if (input.find("dgr",i)==i) {currentToken="deg"; i+=2;} //Alias
+            else if (input.find("tau",i)==i) {currentToken="tau"; i+=2;}
+            else if(input.find("phi",i)==i) {currentToken="phi"; i+=2;}
+            else if(input.find("eul", i)==i) {currentToken="eul"; i+=2;}
+            else if (input.find("H0", i)==i) {currentToken="H0"; i++;}
+            else if (input.find("E0", i)==i) {currentToken="E0"; i++;}
+            else if (input.find("Z0", i)==i) {currentToken="Z0"; i++;}
+            else if (input.find("U0", i)==i) {currentToken="U0"; i++;}
+            else if (input.find("me", i)==i && input.find("mean(", i)!=i) {currentToken="me"; i++;}
+            else if (input.find("ma", i)==i) {currentToken="ma"; i++;}
+            else if (input.find("ec", i)==i) {currentToken="ec"; i++;}
+            else if (input.find("Na", i)==i) {currentToken="Na"; i++;}
+            else if (input.at(i)=='e') currentToken='e';
+            else if (input.at(i)=='a') currentToken='a';
+            else if (input.at(i)=='c') currentToken='c';
+            else if (input.at(i)=='G') currentToken='G';
+            else if (input.at(i)=='g') currentToken='g';
+            else if (input.at(i)=='h') currentToken='h';
+            else if (input.at(i)=='k') currentToken='k';
+            else if (input.at(i)=='R') currentToken='R';
+            else if (input.at(i)=='o') currentToken='o';
+            else if (input.at(i)=='!')
             {
-                currentToken="!!";
-                i++;
+                currentToken='!';
+                if(input.length()>i+1) if(input.at(i+1)=='!')
+                {
+                    currentToken="!!";
+                    i++;
+                }
+            }
+            else if (input.at(i)=='*')
+            {
+                currentToken="*";
+                if(input.length()>i+1) if(input.at(i+1)=='*')
+                {
+                    currentToken="**";
+                    i++;
+                }
             }
         }
-        else if (input.at(i)=='*')
-        {
-            currentToken="*";
-            if(input.length()>i+1) if(input.at(i+1)=='*')
-            {
-                currentToken="**";
-                i++;
-            }
-        }
-
         if(currentToken=="") for(; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || (i<input.length()-1 && input.at(i)=='.' && std::isdigit(input.at(i+1))) || (i>0 && std::isdigit(input.at(i-1)) && input.at(i)=='e' && currentToken!="e" && i<input.length()-2 && (input.at(i+1)=='+' || input.at(i+1)=='-') && std::isdigit(input.at(i+2)))); i++)
         {
             fixOffByOne=true;
@@ -1362,9 +1367,11 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
     return;
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100 xValue, const bool resetInvalid)
+template <typename T>
+T calculation(std::vector<token> tokens, const T xValue, const bool resetInvalid)
 {
     static bool invalidExpressionSeen{};
     if(resetInvalid) invalidExpressionSeen=false;
@@ -1382,14 +1389,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
             std::string randomAsStr {resultAsOSStream.str()};
             if(tokens.at(i).value()=="rndint") // To get random integers, it literally deletes the decimal point
             {
-                for(size_t i{}; i<randomAsStr.length(); i++)
-                {
-                    if(randomAsStr.at(i)=='.')
-                    {
-                        randomAsStr.erase(i,1);
-                        break;
-                    }
-                }
+                randomAsStr.erase(randomAsStr.find_first_of('.'), 1);
             }
             tokens.at(i)=token(randomAsStr);
             resultAsOSStream.str("");
@@ -1449,7 +1449,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
         {
             if(pass==SUBEXPRESSIONS)
             {
-                cpp_dec_float_100 evaluatedSubexpr{};
+                T evaluatedSubexpr{};
                 if(tokens.at(i).type()==token_t::SUBEXPR)
                 {
                     evaluatedSubexpr=calculation(getTokens(tokens.at(i).value()), xValue);
@@ -1520,7 +1520,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
                 }
                 if((tokens.at(i).type()==token_t::UNARYOP || tokens.at(i).type()==token_t::MULTICHARUNARY) && tokens.at(i-1).typeCategory()==tokenCategory_t::NUMBER)
                 {
-                    cpp_dec_float_100 evaluatedUnary=evaluateUnary(tokens.at(i-1), tokens.at(i), xValue);
+                    T evaluatedUnary=evaluateUnary(tokens.at(i-1), tokens.at(i), xValue);
                     resultAsOSStream << evaluatedUnary;
                     tokens.at(i-1)=token(resultAsOSStream.str());
                     resultAsOSStream.str("");
@@ -1545,7 +1545,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
                             //Account for something like x^-1
                             if((tokens.at(i-2).value()=="^" || tokens.at(i-1).value()=="**") && tokens.at(i-1).value()=="-" && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                             {
-                                cpp_dec_float_100 evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
+                                T evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
                                 resultAsOSStream << evaluatedUnary;
                                 tokens.at(i-1)=token(resultAsOSStream.str());
                                 resultAsOSStream.str("");
@@ -1554,7 +1554,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
                             }
                             if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="^" || tokens.at(i-1).value()=="**") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                             {
-                                cpp_dec_float_100 evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
+                                T evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
                                 resultAsOSStream << evaluatedBinary;
                                 tokens.at(i-2)=token(resultAsOSStream.str());
                                 tokens.erase(tokens.begin()+i-1);
@@ -1575,7 +1575,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
                     }
                 if(i!=0&&(tokens.at(i-1).type()==token_t::FUNCTION) && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
-                    cpp_dec_float_100 evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
+                    T evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
                     resultAsOSStream << evaluatedUnary;
                     tokens.at(i-1)=token(resultAsOSStream.str());
                     resultAsOSStream.str("");
@@ -1593,7 +1593,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
                     }
                 if(i!=0&&(tokens.at(i-1).value()=="-") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
-                    cpp_dec_float_100 evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
+                    T evaluatedUnary=evaluateUnary(tokens.at(i), tokens.at(i-1), xValue);
                     resultAsOSStream << evaluatedUnary;
                     tokens.at(i-1)=token(resultAsOSStream.str());
                     resultAsOSStream.str("");
@@ -1612,7 +1612,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
                 if(i<=1) continue;
                 if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="*" || tokens.at(i-1).value()=="/" || tokens.at(i-1).value()=="npk" || tokens.at(i-1).value()=="nck" || tokens.at(i-1).value()=="mod" || tokens.at(i-1).value()=="%") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
-                    cpp_dec_float_100 evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
+                    T evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
                     resultAsOSStream << evaluatedBinary;
                     tokens.at(i-2)=token(resultAsOSStream.str());
                     resultAsOSStream.str("");
@@ -1632,7 +1632,7 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
                 if(i<=1) continue;
                 if(tokens.at(i-2).typeCategory()==tokenCategory_t::NUMBER && (tokens.at(i-1).value()=="+" || tokens.at(i-1).value()=="-") && tokens.at(i).typeCategory()==tokenCategory_t::NUMBER)
                 {
-                    cpp_dec_float_100 evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
+                    T evaluatedBinary=evaluateBinary(tokens.at(i-2), tokens.at(i-1), tokens.at(i), xValue);
                     resultAsOSStream << evaluatedBinary;
                     tokens.at(i-2)=token(resultAsOSStream.str());
                     tokens.erase(tokens.begin()+i-1);
@@ -1645,8 +1645,11 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
         }
     }
     if(tokens.size()==1 && tokens.at(0).type()==token_t::VARIABLE) return xValue;
-    
-    if(tokens.size()==1 && (tokens.at(0).type()==token_t::NUMBER|| tokens.at(0).type()==token_t::CONSTANT)) return static_cast<cpp_dec_float_100>(tokens.at(0).value());
+    if constexpr (std::is_same<T,cpp_dec_float_100>::value)
+    {
+        if(tokens.size()==1 && (tokens.at(0).type()==token_t::NUMBER|| tokens.at(0).type()==token_t::CONSTANT)) return static_cast<cpp_dec_float_100>(tokens.at(0).value());
+    }
+    if(tokens.size()==1 && (tokens.at(0).type()==token_t::NUMBER|| tokens.at(0).type()==token_t::CONSTANT)) return std::stold(tokens.at(0).value());
     else if(tokens.size()==1 && tokens.at(0).value()=="nan") return NAN;
     else if(!invalidExpressionSeen)
     {
@@ -1675,17 +1678,19 @@ cpp_dec_float_100 calculation(std::vector<token> tokens, const cpp_dec_float_100
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-cpp_dec_float_100 evaluateAbs(token &arg, const cpp_dec_float_100 xValue)
+template <typename T>
+T evaluateAbs(token &arg, const T xValue)
 {
-    return abs(calculation(getTokens(arg.value()), xValue));
+    return abs(calculation<T>(getTokens(arg.value()), xValue));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-cpp_dec_float_100 evaluateMean(token &arg, const cpp_dec_float_100 xValue)
+template <typename T>
+T evaluateMean(token &arg, const T xValue)
 {
-    cpp_dec_float_100 result{};
-    std::vector<cpp_dec_float_100> intermediateResults;
+    T result{};
+    std::vector<T> intermediateResults;
     std::string currentToken;
     int nestingLevel{};
     for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
@@ -1696,12 +1701,12 @@ cpp_dec_float_100 evaluateMean(token &arg, const cpp_dec_float_100 xValue)
         if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
         else
         {
-            intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+            intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
             currentToken.clear();
         }
     }
 
-    if(currentToken!="") intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue)); //Account for something like mean(3 which is stupid but valid
+    if(currentToken!="") intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue)); //Account for something like mean(3 which is stupid but valid
     for(size_t i{}; i<intermediateResults.size(); i++)
     {
         result+=intermediateResults.at(i);
@@ -1713,7 +1718,8 @@ cpp_dec_float_100 evaluateMean(token &arg, const cpp_dec_float_100 xValue)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-cpp_dec_float_100 evaluateRndint(token &arg, const cpp_dec_float_100 xValue)
+template <typename T = cpp_dec_float_100>
+T evaluateRndint(token &arg, const T xValue)
 {
     std::vector<long double> intermediateResults;
     std::string currentToken;
@@ -1726,11 +1732,11 @@ cpp_dec_float_100 evaluateRndint(token &arg, const cpp_dec_float_100 xValue)
         if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
         else
         {
-            intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+            intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
             currentToken.clear();
         }
     }
-    if(currentToken!="") intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+    if(currentToken!="") intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
 
     if(intermediateResults.size()!=2)
     {
@@ -1745,9 +1751,10 @@ cpp_dec_float_100 evaluateRndint(token &arg, const cpp_dec_float_100 xValue)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-cpp_dec_float_100 evaluateRndsel(token &arg, const cpp_dec_float_100 xValue)
+template <typename T>
+T evaluateRndsel(token &arg, const T xValue)
 {
-    std::vector<cpp_dec_float_100> intermediateResults;
+    std::vector<T> intermediateResults;
     std::string currentToken;
     int nestingLevel{};
     for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
@@ -1758,21 +1765,22 @@ cpp_dec_float_100 evaluateRndsel(token &arg, const cpp_dec_float_100 xValue)
         if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
         else
         {
-            intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+            intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
             currentToken.clear();
         }
     }
 
-    if(currentToken!="") intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
-    std::uniform_int_distribution<> intDist(0, intermediateResults.size()-1);
+    if(currentToken!="") intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
+    std::uniform_int_distribution<size_t> intDist(0, intermediateResults.size()-1);
     return intermediateResults.at(intDist(randomMt));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-cpp_dec_float_100 evaluateGreatest(token &arg, const cpp_dec_float_100 xValue)
+template <typename T>
+T evaluateGreatest(token &arg, const T xValue)
 {
-    std::vector<cpp_dec_float_100> intermediateResults;
+    std::vector<T> intermediateResults;
     std::string currentToken;
     int nestingLevel{};
     for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
@@ -1783,21 +1791,22 @@ cpp_dec_float_100 evaluateGreatest(token &arg, const cpp_dec_float_100 xValue)
         if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
         else
         {
-            intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+            intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
             currentToken.clear();
         }
     }
 
-    if(currentToken!="") intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+    if(currentToken!="") intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
     for(size_t i{}; i<intermediateResults.size(); i++) if(intermediateResults.at(i)>intermediateResults.at(0)) intermediateResults.at(0)=intermediateResults.at(i);
     return intermediateResults.at(0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-cpp_dec_float_100 evaluateLeast(token &arg, const cpp_dec_float_100 xValue)
+template <typename T>
+T evaluateLeast(token &arg, const T xValue)
 {
-    std::vector<cpp_dec_float_100> intermediateResults;
+    std::vector<T> intermediateResults;
     std::string currentToken;
     int nestingLevel{};
     for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
@@ -1808,28 +1817,29 @@ cpp_dec_float_100 evaluateLeast(token &arg, const cpp_dec_float_100 xValue)
         if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
         else
         {
-            intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+            intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
             currentToken.clear();
         }
     }
 
-    if(currentToken!="") intermediateResults.emplace_back(calculation(getTokens(currentToken), xValue));
+    if(currentToken!="") intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
     for(size_t i{}; i<intermediateResults.size(); i++) if(intermediateResults.at(i)<intermediateResults.at(0)) intermediateResults.at(0)=intermediateResults.at(i);
     return intermediateResults.at(0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-cpp_dec_float_100 evaluateRoot(token denominatorArg, token &enumeratorArg, const cpp_dec_float_100 xValue)
+template <typename T>
+T evaluateRoot(token denominatorArg, token &enumeratorArg, const T xValue)
 {
-    cpp_dec_float_100 denominator{};
+    T denominator{};
 
     std::vector<token> tokenToEval{denominatorArg};
     if(denominatorArg.type()!=token_t::ROOTARGLEFT) denominator=2;
-    else denominator=calculation(getTokens(denominatorArg.value()), xValue);
+    else denominator=calculation<T>(getTokens(denominatorArg.value()), xValue);
 
     tokenToEval.at(0)=enumeratorArg;
-    cpp_dec_float_100 enumerator=calculation(getTokens(enumeratorArg.value()), xValue);
+    T enumerator=calculation<T>(getTokens(enumeratorArg.value()), xValue);
 
     if(denominator==static_cast<int>(denominator) && static_cast<int>(denominator)%2==0 && enumerator<0) return NAN;
 
@@ -1839,23 +1849,25 @@ cpp_dec_float_100 evaluateRoot(token denominatorArg, token &enumeratorArg, const
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-cpp_dec_float_100 evaluateLog(token denominatorArg, token &enumeratorArg, const cpp_dec_float_100 xValue)
+template <typename T>
+T evaluateLog(token denominatorArg, token &enumeratorArg, const T xValue)
 {
-    cpp_dec_float_100 denominator{};
+    T denominator{};
 
     std::vector<token> tokenToEval{denominatorArg};
     if(denominatorArg.type()!=token_t::LOGARGLEFT) denominator=10;
-    else denominator=calculation(getTokens(denominatorArg.value()), xValue);
+    else denominator=calculation<T>(getTokens(denominatorArg.value()), xValue);
 
-    return log(calculation(getTokens(enumeratorArg.value()), xValue))/log(denominator);
+    return log(calculation<T>(getTokens(enumeratorArg.value()), xValue))/log(denominator);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-cpp_dec_float_100 evaluateBinary(token &numberStringLeft, token &operation, token &numberStringRight, const cpp_dec_float_100 xValue)
+template <typename T>
+T evaluateBinary(token &numberStringLeft, token &operation, token &numberStringRight, const T xValue)
 {
-    cpp_dec_float_100 numberLeft{numberStringLeft.number(xValue)};
-    cpp_dec_float_100 numberRight{numberStringRight.number(xValue)};
+    T numberLeft{numberStringLeft.number(xValue)};
+    T numberRight{numberStringRight.number(xValue)};
 
     if(operation.value()=="+") return numberLeft+numberRight;
     else if(operation.value()=="*") return numberLeft*numberRight;
@@ -1870,19 +1882,20 @@ cpp_dec_float_100 evaluateBinary(token &numberStringLeft, token &operation, toke
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-cpp_dec_float_100 evaluateUnary(token &numberString, token &operation, const cpp_dec_float_100 xValue)
+template <typename T>
+T evaluateUnary(token &numberString, token &operation, const T xValue)
 {
-    cpp_dec_float_100 number=numberString.number(xValue);
-    cpp_dec_float_100 result{1};
+    T number=numberString.number(xValue);
+    T result{1};
     if(operation.value()=="-") return -number;
 
-    if(operation.value()=="sin") return sin(fmod(number,2*pi<cpp_dec_float_100>()));
-    if(operation.value()=="cos") return cos(fmod(number,2*pi<cpp_dec_float_100>()));
-    if(operation.value()=="tan") return tan(fmod(number,pi<cpp_dec_float_100>()));
+    if(operation.value()=="sin") return sin(fmod(number,2*pi<T>()));
+    if(operation.value()=="cos") return cos(fmod(number,2*pi<T>()));
+    if(operation.value()=="tan") return tan(fmod(number,pi<T>()));
 
-    if(operation.value()=="sec") return 1/cos(fmod(number,2*pi<cpp_dec_float_100>()));
-    if(operation.value()=="csc") return 1/sin(fmod(number,2*pi<cpp_dec_float_100>()));
-    if(operation.value()=="cot") return 1/tan(fmod(number,pi<cpp_dec_float_100>()));
+    if(operation.value()=="sec") return 1/cos(fmod(number,2*pi<T>()));
+    if(operation.value()=="csc") return 1/sin(fmod(number,2*pi<T>()));
+    if(operation.value()=="cot") return 1/tan(fmod(number,pi<T>()));
 
     if(operation.value()=="asec") return acos(1/number);
     if(operation.value()=="acsc") return asin(1/number);
@@ -1918,7 +1931,7 @@ cpp_dec_float_100 evaluateUnary(token &numberString, token &operation, const cpp
     {
         if(number<0) return NAN;
         number=round(number);
-        for(cpp_dec_float_100 i{fmod(number, 2)+2}; i<number+1; i+=2)
+        for(T i{fmod(number, 2)+2}; i<number+1; i+=2)
         {
             if(number>19572801.5) return INFINITY;
             if(number==0) return 1.0;
