@@ -1,4 +1,3 @@
-
 #include <cctype>
 #include <random>
 #include <cfloat>
@@ -12,6 +11,7 @@
 #include <sstream>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include <type_traits>
+
 void displayHelp(char arg='a');
 bool isValidInput(const char);
 
@@ -50,12 +50,12 @@ enum class token_t
     NUMBER,
     ROOTARGRIGHT,
     ROOTARGLEFT,
-    MEAN,
+    MEAN, // Meanie
     RNDINT,
     RNDSEL,
     ABS,
-    GREATEST,
-    LEAST,
+    MAX,
+    MIN,
     LOGARGRIGHT,
     LOGARGLEFT,
     SUBEXPR,
@@ -130,14 +130,10 @@ class token
         else if(isLogArgRight(value)) return token_t::LOGARGRIGHT;
         else if(isLogArgLeft(value)) return token_t::LOGARGLEFT;
         else if(isSubexpr(value)) return token_t::SUBEXPR;
-        else if(isAbsArg(value)) return token_t::ABS;
-        else if(isMeanArg(value)) return token_t::MEAN;
-        else if(isLeastArg(value)) return token_t::LEAST;
-        else if(isGreatestArg(value)) return token_t::GREATEST;
-        else if(isRndintArg(value)) return token_t::RNDINT;
-        else if(isRndselArg(value)) return token_t::RNDSEL;
+        else if(isAbs(value)) return token_t::ABS;
         else if(value=="x") return token_t::VARIABLE;
-        return token_t::INVALID;
+        else return isMultiArgFunction(value);
+        std::unreachable();
     }
     ///////////////////////////////////////////////
     static bool isConstant(const std::string &input)
@@ -229,7 +225,25 @@ class token
         return c=='!'|| c=='-';
     }
     ///////////////////////////////////////////////
-    bool isAbsArg(std::string &input)
+    token_t isMultiArgFunction(std::string &input)
+    {
+        size_t offset{};
+        token_t type;
+        if(input.find("grt")==0) {offset=4; type=token_t::MAX;} // Why grt and not max? To make getVariableArgs not trigger when it isn't supposed to
+        else if(input.find("min")==0) {offset=4; type=token_t::MIN;}
+        else if(input.find("mean")==0) {offset=5; type=token_t::MEAN;}
+        else if(input.find("rndint")==0) {offset=7; type=token_t::RNDINT;}
+        else if(input.find("rndsel")==0) {offset=7; type=token_t::RNDSEL;}
+        else return token_t::INVALID;
+
+        for(size_t i{offset}; i<input.length(); i++)
+        {
+            tokenValue.push_back(input.at(i));
+        }
+        return type;
+    }
+    ///////////////////////////////////////////////
+    bool isAbs(std::string &input)
     {
         if((input.at(0)!='|' || input.at(input.length()-1)!='|')&&input.find("abs(")!=0) return false;
         
@@ -237,56 +251,6 @@ class token
         else for(size_t i{4}; i<input.length(); i++) tokenValue.push_back(input.at(i));
         return true;
     }    
-    ///////////////////////////////////////////////
-    bool isMeanArg(std::string &input)
-    {
-        if(input.find("mean(")!=0) return false;
-        for(size_t i{5}; i<input.length(); i++)
-        {
-            tokenValue.push_back(input.at(i));
-        }
-        return true;
-    }  
-    ///////////////////////////////////////////////
-    bool isRndselArg(std::string &input)
-    {
-        if(input.find("rndsel(")!=0) return false;
-        for(size_t i{7}; i<input.length(); i++)
-        {
-            tokenValue.push_back(input.at(i));
-        }
-        return true;
-    } 
-    ///////////////////////////////////////////////
-    bool isRndintArg(std::string &input)
-    {
-        if(input.find("rndint(")!=0) return false;
-        for(size_t i{7}; i<input.length(); i++)
-        {
-            tokenValue.push_back(input.at(i));
-        }
-        return true;
-    }  
-    ///////////////////////////////////////////////
-    bool isGreatestArg(std::string &input)
-    {
-        if(input.find("greatest(")!=0) return false;
-        for(size_t i{9}; i<input.length(); i++)
-        {
-            tokenValue.push_back(input.at(i));
-        }
-        return true;
-    }  
-    ///////////////////////////////////////////////
-    bool isLeastArg(std::string &input)
-    {
-        if(input.find("least(")!=0) return false;
-        for(size_t i{6}; i<input.length(); i++)
-        {
-            tokenValue.push_back(input.at(i));
-        }
-        return true;
-    }  
     ///////////////////////////////////////////////
     bool isRootArgRight(std::string &input)
     {
@@ -382,7 +346,7 @@ class token
     {
         if(type==token_t::NUMBER || type==token_t::VARIABLE || type==token_t::CONSTANT) return tokenCategory_t::NUMBER;
         else if(type==token_t::SUBEXPR ||
-                type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT || type==token_t::ABS|| type==token_t::GREATEST|| type==token_t::LEAST||
+                type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT || type==token_t::ABS|| type==token_t::MAX|| type==token_t::MIN||
                 type==token_t::LOGARGLEFT || type==token_t::LOGARGRIGHT || type==token_t::MEAN || type==token_t::RNDINT || type==token_t::RNDSEL) return tokenCategory_t::SUBEXPR;
         else if(type==token_t::FUNCTION) return tokenCategory_t::FUNCTION;
         else return tokenCategory_t::OPERATOR;
@@ -442,22 +406,28 @@ void getVariableArgs(std::vector<token>&, options&);
 void graph(const std::vector<point>&points, const cpp_dec_float_100 yMin, const cpp_dec_float_100 yMax, const uint xClosestToZeroIndex, const options &options);
 template <typename T = cpp_dec_float_100> T calculation(std::vector<token>, const T xValue,const bool resetInvalid=false);
 template <typename T = cpp_dec_float_100> T evaluateAbs(token &arg, const T xValue);
-
 template <typename T = cpp_dec_float_100> T evaluateRoot(token denominator, token &enumerator, const T xValue);
 template <typename T = cpp_dec_float_100> T evaluateLog(token denominatorArg, token &enumeratorArg, const T xValue);
-
 template <typename T = cpp_dec_float_100> T evaluateUnary(token&, token&, const T xValue);
 template <typename T = cpp_dec_float_100> T evaluateBinary(token&, token&, token&, const T xValue);
+
 template <typename T = cpp_dec_float_100> T evaluateMean(token &arg, const T xValue);
 template <typename T = cpp_dec_float_100> T evaluateRndsel(token &arg, const T xValue);
-template <typename T = cpp_dec_float_100> T evaluateGreatest(token &arg, const T xValue);
+template <typename T = cpp_dec_float_100> T evaluateMax(token &arg, const T xValue);
 template <typename T = cpp_dec_float_100> T evaluateLeast(token &arg, const T xValue);
+
+void parseMultiArgFunction(const std::string &input, std::vector<token> &tokens, const char* functionName, size_t &i, bool &inFunctionCall, size_t argCount=SIZE_MAX);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char** argv)
 {
+    // std::vector<token> testVector;
+    // std::string testString = "max(3,5,8)+2";
+    // parseMultiArgFunction(testString,testVector,"greatest",0);
+    // std::cout<<testVector.at(0).value()<<' '<<static_cast<int>(testVector.at(0).type());
+    
     std::string resultHistory;
     std::string previousResult{"nan"};
     bool firstPass{true};
@@ -628,6 +598,10 @@ int main(int argc, char** argv)
             std::cerr<<"\nNo valid input\n\n";
             equation.clear();
             continue;
+        }
+        for(size_t i{}; i<equation.length(); i++)
+        {
+            if(equation.find("max(",i)==i) equation.replace(i,4,"grt("); //Alias max because it causes getVariableArgs to mess up
         }
         std::vector<token> tokens = getTokens(equation,previousResult);
         if(!passedInAsArg)
@@ -822,7 +796,7 @@ void displayHelp(char arg)
 
     if(arg=='a' || arg=='f')
         std::cout<<"\nThis calculator takes an expression using numbers, rnd, rndint, ans<prev. result> +, -, *, /, ^ (or **), x, !, !!, % (mod), npk, nck, |expr|, (expr) or [expr] and these functions:\n"<<
-        "    root(denominator, enumerator), log(base,value), mean(arg,arg,arg,...), rndint(arg1,arg2), rndsel(arg,arg,arg,...), least(arg,arg,arg,...), greatest(arg,arg,arg,...)\n"<<
+        "    root(denominator, enumerator), log(base,value), mean(arg,arg,arg,...), rndint(arg1,arg2), rndsel(arg,arg,arg,...), min(arg,arg,arg,...), max(arg,arg,arg,...)\n"<<
         "    sin, cos, tan, sec, cosec, cot, arcsin, arccos, arctan, arcsec, arccosec, arccot\n"<<
         "    sinh, cosh, tanh, sech, cosech, coth, arcsinh, arccosh, arctanh, arcsech, arccosech, arccoth\n"<<
         "    floor, ceil, round, abs, ln\n\n";
@@ -860,6 +834,57 @@ bool isValidInput(const char c)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+void parseMultiArgFunction(const std::string &input, std::vector<token> &tokens, const char* functionName, size_t &i, bool &inFunctionCall, size_t argCount)
+{
+    size_t initialI{i};
+    i=0;
+    size_t argFound{1};
+    std::string currentToken;
+    int nestingLevel{};
+    size_t functionNameLength{};
+    for(; functionName[functionNameLength]!='\000'; functionNameLength++);
+
+    for(; i<input.length(); i++)
+    {
+        if(currentToken=="" && input.find(functionName, i)==i) for(; i<input.length(); i++)
+        {
+            if(!inFunctionCall)
+            {
+                currentToken.append(functionName);
+                i+=functionNameLength;
+                inFunctionCall=true;
+                if(i==input.length()-1) continue;
+            }
+            if(input.at(i)==',' && nestingLevel==1) argFound++;
+            if(argFound>argCount)
+            {
+                for(; i<input.length() && nestingLevel>0; i++)
+                {
+                    if(input.at(i)==')') nestingLevel--;
+                    else if(input.at(i)=='(') nestingLevel++;                    
+                }
+                break;
+            }
+            if(input.at(i)==')') nestingLevel--;
+            else if(input.at(i)=='(') nestingLevel++;
+            currentToken.push_back(input.at(i));
+            if((i==input.length()-2 && input.at(i)==',' && input.at(i+1)==')') || (input.at(i-1)==',' && input.at(i)==',') || (nestingLevel==0 && input.at(i-1)==',')) //Check for some bad argument cases
+            {
+                currentToken.clear();
+                continue;
+            }
+            if(nestingLevel==0 || i==input.length()-1)
+            {
+                tokens.emplace_back(currentToken);
+                break;
+            }
+        }
+    }
+    i+=initialI;
+    return;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 std::vector<token> getTokens(const std::string &input, const std::string& previousResult)
 {
@@ -881,7 +906,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
     for(size_t i{}; i<input.length(); i++)
     {
 
-        //Parse |x|... or ||x|| if the user hates me... or ||||x||||. whatever.
+        // Parse |x|... or ||x|| if the user hates me... or ||||x||||. whatever.
         if(currentToken=="" && input.at(i)=='|') for(startOfFunction=i; i<input.length(); i++)
         {
             if(!inFunctionCall)
@@ -918,7 +943,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
 
             currentToken.push_back(input.at(i));
         }
-        //Parse root()
+        // Parse root()
         if(currentToken=="" && input.find("root(",i)==i) for(; i<input.length(); i++)
         {
             if(!inFunctionCall)
@@ -931,7 +956,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
                 nestingOfFunction=nestingLevel;
                 if(i==input.length()) continue;
             }
-            if(inFunctionCall && nestingLevel==nestingOfFunction && input.at(i)==',' && rootHasTwoArgs==false) //std::cout<<input.substr(startOfFunction,i-startOfFunction+1);
+            if(inFunctionCall && nestingLevel==nestingOfFunction && input.at(i)==',' && rootHasTwoArgs==false) 
             {
                 rootHasTwoArgs=true;
                 endOfFirstArg=i;
@@ -951,7 +976,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             else if(input.at(i)=='(') nestingLevel++;
         }
 
-        //Parse log()
+        // Parse log()
         if(currentToken=="" && input.find("log(",i)==i) for(; i<input.length(); i++)
         {
             if(!inFunctionCall)
@@ -988,150 +1013,14 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             else if(input.at(i)=='(') nestingLevel++;
         }
 
-        //Parse mean()
-        if(currentToken=="" && !inFunctionCall && input.find("mean(", i)==i) for(; i<input.length(); i++)
-        {
-            if(!inFunctionCall)
-            {
-                currentToken.append("mean(");
-                i+=5;
-                inFunctionCall=true;
-                if(i==input.length()) continue;
-                nestingLevel++;
-            }
-            if(input.at(i)==')') nestingLevel--;
-            else if(input.at(i)=='(') nestingLevel++;
-            currentToken.push_back(input.at(i));
-            if((i==input.length()-2 && input.at(i)==',' && input.at(i+1)==')') || (input.at(i-1)==',' && input.at(i)==',') || (nestingLevel==0 && input.at(i-1)==',')) //Check for some bad argument cases
-            {
-                currentToken.clear();
-                continue;
-            }
-            if(nestingLevel==0 || i==input.length()-1)
-            {
-                tokens.emplace_back(currentToken);
-                break;
-            }
-        }
+        if(!inFunctionCall && input.find("mean(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"mean",i,inFunctionCall);
+        if(!inFunctionCall && input.find("grt(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"grt",i,inFunctionCall);
+        if(!inFunctionCall && input.find("min(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"min",i,inFunctionCall);
+        if(!inFunctionCall && input.find("rndsel(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"rndsel",i,inFunctionCall);
+        if(!inFunctionCall && input.find("rndint(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"rndint",i,inFunctionCall,2);
 
-        //Parse greatest()
-        if(currentToken=="" && !inFunctionCall && input.find("greatest(", i)==i) for(; i<input.length(); i++)
-        {
-            if(!inFunctionCall)
-            {
-                currentToken.append("greatest(");
-                i+=9;
-                inFunctionCall=true;
-                if(i==input.length()) continue;
-                nestingLevel++;
-            }
-            if(input.at(i)==')') nestingLevel--;
-            else if(input.at(i)=='(') nestingLevel++;
-            currentToken.push_back(input.at(i));
-            if((i==input.length()-2 && input.at(i)==',' && input.at(i+1)==')') || (input.at(i-1)==',' && input.at(i)==',') || (nestingLevel==0 && input.at(i-1)==',')) //Check for some bad argument cases
-            {
-                currentToken.clear();
-                continue;
-            }
-            if(nestingLevel==0 || i==input.length()-1)
-            {
-                tokens.emplace_back(currentToken);
-                break;
-            }
-        }
 
-        //Parse least()
-        if(currentToken=="" && !inFunctionCall && input.find("least(", i)==i) for(; i<input.length(); i++)
-        {
-            if(!inFunctionCall)
-            {
-                currentToken.append("least(");
-                i+=6;
-                inFunctionCall=true;
-                if(i==input.length()) continue;
-                nestingLevel++;
-            }
-            if(input.at(i)==')') nestingLevel--;
-            else if(input.at(i)=='(') nestingLevel++;
-            currentToken.push_back(input.at(i));
-            if((i==input.length()-2 && input.at(i)==',' && input.at(i+1)==')') || (input.at(i-1)==',' && input.at(i)==',') || (nestingLevel==0 && input.at(i-1)==',')) //Check for some bad argument cases
-            {
-                currentToken.clear();
-                continue;
-            }
-            if(nestingLevel==0 || i==input.length()-1)
-            {
-                tokens.emplace_back(currentToken);
-                break;
-            }
-        }
-
-        //Parse rndsel()
-        if(currentToken=="" && !inFunctionCall && input.find("rndsel(", i)==i) for(; i<input.length(); i++)
-        {
-            if(!inFunctionCall)
-            {
-                currentToken.append("rndsel(");
-                i+=7;
-                inFunctionCall=true;
-                if(i==input.length()) continue;
-                nestingLevel++;
-            }
-            if(input.at(i)==')') nestingLevel--;
-            else if(input.at(i)=='(') nestingLevel++;
-            currentToken.push_back(input.at(i));
-            if((i==input.length()-2 && input.at(i)==',' && input.at(i+1)==')') || (input.at(i-1)==',' && input.at(i)==',') || (nestingLevel==0 && input.at(i-1)==',')) //Check for some bad argument cases
-            {
-                currentToken.clear();
-                continue;
-            }
-            if(nestingLevel==0 || i==input.length()-1)
-            {
-                tokens.emplace_back(currentToken);
-                break;
-            }
-        }
-
-        //Parse rndint()
-        uint argCount{1};
-        if(currentToken=="" && !inFunctionCall && input.find("rndint(", i)==i) for(; i<input.length(); i++)
-        {
-            if(!inFunctionCall)
-            {
-                currentToken.append("rndint(");
-                i+=7;
-                inFunctionCall=true;
-                if(i==input.length()) continue;
-                nestingLevel++;
-            }
-            if(input.at(i)==')') nestingLevel--;
-            else if(input.at(i)=='(') nestingLevel++;
-            currentToken.push_back(input.at(i));
-
-            if(input.at(i)==',' && nestingLevel==1) argCount++;
-            if(argCount>2)
-            {
-                for(; i<input.length() && nestingLevel>0; i++)
-                {
-                    if(input.at(i)==')') nestingLevel--;
-                    else if(input.at(i)=='(') nestingLevel++;                    
-                }
-                break;
-            }
-
-            if(((i==input.length()-2 && input.at(i)==',') && input.at(i+1)==')') || (input.at(i-1)==',' && input.at(i)==',') || (nestingLevel==0 && input.at(i-1)==',')) //Check for some bad argument cases
-            {
-                currentToken.clear();
-                continue;
-            }
-            if(nestingLevel==0 || i==input.length()-1)
-            {
-                tokens.emplace_back(currentToken);
-                break;
-            }
-        }
-
-        //Parse Subexpression
+        // Parse Subexpression
         if(currentToken=="" && !inFunctionCall && input.at(i)=='(') for(; i<input.length(); i++)
         {
             if(input.at(i)==')') nestingLevel--;
@@ -1139,7 +1028,9 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             currentToken.push_back(input.at(i));
             if(nestingLevel==0 || i==input.length()-1) break;                
         }
-        if(currentToken=="")
+        
+        // Parse other symbols
+        if(currentToken=="" && !inFunctionCall)
         {
             if(input.at(i)=='+') currentToken='+';
             else if (input.at(i)=='-') currentToken='-';
@@ -1273,6 +1164,8 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
                 }
             }
         }
+
+        // Parse Number
         if(currentToken=="") for(; i<input.length() && ((input.at(i)>='0' && input.at(i)<='9') || (i<input.length()-1 && input.at(i)=='.' && std::isdigit(input.at(i+1))) || (i>0 && std::isdigit(input.at(i-1)) && input.at(i)=='e' && currentToken!="e" && i<input.length()-2 && (input.at(i+1)=='+' || input.at(i+1)=='-') && std::isdigit(input.at(i+2)))); i++)
         {
             fixOffByOne=true;
@@ -1288,6 +1181,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             fixOffByOne=false;
             i--;
         }
+
         if(inFunctionCall) currentToken.clear();
         if(currentToken!="") tokens.emplace_back(currentToken);
         currentToken.clear();
@@ -1304,6 +1198,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
 
 void getVariableArgs(std::vector<token> &tokens, options &options)
 {
+    static bool gotArgs{};
     if(tokens.size()==0) return;
     for(size_t i{}; i<tokens.size(); i++)
     {
@@ -1364,6 +1259,7 @@ void getVariableArgs(std::vector<token> &tokens, options &options)
         if(!options.graph) std::cerr<<"\nToo many calculations requested!\n";
     }
     std::cin.ignore();
+    gotArgs=true;
     return;
 }
 
@@ -1441,8 +1337,8 @@ T calculation(std::vector<token> tokens, const T xValue, const bool resetInvalid
             i-=2;
         }
     }
-    long unsigned int pass{};
-    long unsigned int failedPass{ADDITION+1};
+    size_t pass{};
+    size_t failedPass{ADDITION+1};
     for(; pass<=ADDITION; pass++)
     {
         for(int i{}; i<tokens.size(); i++)
@@ -1458,11 +1354,11 @@ T calculation(std::vector<token> tokens, const T xValue, const bool resetInvalid
                 {
                     evaluatedSubexpr=evaluateMean(tokens.at(i), xValue);
                 }
-                else if(tokens.at(i).type()==token_t::GREATEST)
+                else if(tokens.at(i).type()==token_t::MAX)
                 {
-                    evaluatedSubexpr=evaluateGreatest(tokens.at(i), xValue);
+                    evaluatedSubexpr=evaluateMax(tokens.at(i), xValue);
                 }
-                else if(tokens.at(i).type()==token_t::LEAST)
+                else if(tokens.at(i).type()==token_t::MIN)
                 {
                     evaluatedSubexpr=evaluateLeast(tokens.at(i), xValue);
                 }
@@ -1778,7 +1674,7 @@ T evaluateRndsel(token &arg, const T xValue)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
-T evaluateGreatest(token &arg, const T xValue)
+T evaluateMax(token &arg, const T xValue)
 {
     std::vector<T> intermediateResults;
     std::string currentToken;
@@ -1991,10 +1887,7 @@ bool isNumberPart(const char input)
     return (input>='0' && input<='9') || input=='.' || input=='e';
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 /*
-
 3+(pi/root(2+4,10-2))-25x
 
 3: Number                                               -> NUMBER
