@@ -11,6 +11,8 @@
 #include <sstream>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include <type_traits>
+#include <fstream>
+#include <filesystem>
 
 void displayHelp(char arg='a');
 bool isValidInput(const char);
@@ -415,6 +417,7 @@ template <typename T = cpp_dec_float_100> T evaluateMean(token &arg, const T xVa
 template <typename T = cpp_dec_float_100> T evaluateRndsel(token &arg, const T xValue);
 template <typename T = cpp_dec_float_100> T evaluateMax(token &arg, const T xValue);
 template <typename T = cpp_dec_float_100> T evaluateLeast(token &arg, const T xValue);
+template <typename T = cpp_dec_float_100> void evaluateArgs(token &arg, const T xValue, std::vector<T>&intermediateResults);
 
 void parseMultiArgFunction(const std::string &input, std::vector<token> &tokens, const char* functionName, size_t &i, bool &inFunctionCall, size_t argCount=SIZE_MAX);
 
@@ -779,7 +782,21 @@ void graph(const std::vector<point>&points, const cpp_dec_float_100 yMin, const 
 
     if(graph.size()-i>300 || length >200)
     {
-        std::cerr<<"\nThe graph would be too large.\n";
+        std::cout<<"\nThe graph would be too large. Graph to file instead? y/n\n=> ";
+        char confirmation=std::cin.get();
+        if(confirmation=='y' || confirmation=='Y')
+        {
+            std::ofstream file{"graph.txt"};
+            if(!file)
+            {
+                std::cerr<<"\nFile did not open.\n";
+                return;
+            }
+            file<<graph.at(0);
+            for(; i<graph.size(); i++) file<<graph.at(i);
+            std::cout<<"File saved to " << std::filesystem::current_path() << "\n";
+        }
+        std::cin.ignore(10000,'\n');
         return;
     }
     std::cout<<graph.at(0); //Print line with top of y axis
@@ -1587,6 +1604,20 @@ T evaluateMean(token &arg, const T xValue)
 {
     T result{};
     std::vector<T> intermediateResults;
+    evaluateArgs(arg,xValue,intermediateResults);   for(size_t i{}; i<intermediateResults.size(); i++)
+    {
+        result+=intermediateResults.at(i);
+    }
+    result=result/(intermediateResults.size());
+
+    return result;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template <typename T>
+void evaluateArgs(token &arg, const T xValue, std::vector<T>&intermediateResults)
+{
     std::string currentToken;
     int nestingLevel{};
     for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
@@ -1601,15 +1632,7 @@ T evaluateMean(token &arg, const T xValue)
             currentToken.clear();
         }
     }
-
-    if(currentToken!="") intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue)); //Account for something like mean(3 which is stupid but valid
-    for(size_t i{}; i<intermediateResults.size(); i++)
-    {
-        result+=intermediateResults.at(i);
-    }
-    result=result/(intermediateResults.size());
-
-    return result;
+    if(currentToken!="") intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1652,21 +1675,7 @@ T evaluateRndsel(token &arg, const T xValue)
 {
     std::vector<T> intermediateResults;
     std::string currentToken;
-    int nestingLevel{};
-    for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
-    {
-        if(arg.value().at(i)=='(') nestingLevel++;
-        else if(arg.value().at(i)==')') nestingLevel--;
-        if(nestingLevel<0) break;
-        if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
-        else
-        {
-            intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
-            currentToken.clear();
-        }
-    }
-
-    if(currentToken!="") intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
+    evaluateArgs(arg,xValue,intermediateResults);
     std::uniform_int_distribution<size_t> intDist(0, intermediateResults.size()-1);
     return intermediateResults.at(intDist(randomMt));
 }
@@ -1678,21 +1687,7 @@ T evaluateMax(token &arg, const T xValue)
 {
     std::vector<T> intermediateResults;
     std::string currentToken;
-    int nestingLevel{};
-    for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
-    {
-        if(arg.value().at(i)=='(') nestingLevel++;
-        else if(arg.value().at(i)==')') nestingLevel--;
-        if(nestingLevel<0) break;
-        if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
-        else
-        {
-            intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
-            currentToken.clear();
-        }
-    }
-
-    if(currentToken!="") intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
+    evaluateArgs(arg,xValue,intermediateResults);
     for(size_t i{}; i<intermediateResults.size(); i++) if(intermediateResults.at(i)>intermediateResults.at(0)) intermediateResults.at(0)=intermediateResults.at(i);
     return intermediateResults.at(0);
 }
@@ -1704,21 +1699,7 @@ T evaluateLeast(token &arg, const T xValue)
 {
     std::vector<T> intermediateResults;
     std::string currentToken;
-    int nestingLevel{};
-    for(size_t i{}; i<arg.value().length() && nestingLevel>=0; i++)
-    {
-        if(arg.value().at(i)=='(') nestingLevel++;
-        else if(arg.value().at(i)==')') nestingLevel--;
-        if(nestingLevel<0) break;
-        if(!(arg.value().at(i)==',' && nestingLevel==0) && i<arg.value().length()) currentToken.push_back(arg.value().at(i));
-        else
-        {
-            intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
-            currentToken.clear();
-        }
-    }
-
-    if(currentToken!="") intermediateResults.emplace_back(calculation<T>(getTokens(currentToken), xValue));
+    evaluateArgs(arg,xValue,intermediateResults);
     for(size_t i{}; i<intermediateResults.size(); i++) if(intermediateResults.at(i)<intermediateResults.at(0)) intermediateResults.at(0)=intermediateResults.at(i);
     return intermediateResults.at(0);
 }
