@@ -1,7 +1,6 @@
 #include <cctype>
 #include <random>
 #include <cfloat>
-#include <cstdint>
 #include <cfloat>
 #include <iostream>
 #include <string>
@@ -10,6 +9,7 @@
 #include <boost/math/constants/constants.hpp>
 #include <sstream>
 #include <boost/multiprecision/cpp_dec_float.hpp>
+#include <boost/math/ccmath/fmod.hpp>
 #include <type_traits>
 #include <fstream>
 #include <filesystem>
@@ -53,6 +53,10 @@ enum class token_t
     ROOTARGRIGHT,
     ROOTARGLEFT,
     MEAN, // Meanie
+    MEDIAN,
+    STDEV,
+    GCF,
+    LCM,
     RNDINT,
     RNDSEL,
     ABS,
@@ -192,6 +196,7 @@ class token
     static bool isFunction(const std::string &input)
     {
         return input=="sin" || 
+            input=="sign" || 
             input=="cos" ||
             input=="tan" ||
             input=="sinh" || 
@@ -232,8 +237,12 @@ class token
         size_t offset{};
         token_t type;
         if(input.find("grt")==0) {offset=4; type=token_t::MAX;} // Why grt and not max? To make getVariableArgs not trigger when it isn't supposed to
+        else if(input.find("gcf")==0) {offset=4; type=token_t::GCF;}
+        else if(input.find("lcm")==0) {offset=4; type=token_t::LCM;}
         else if(input.find("min")==0) {offset=4; type=token_t::MIN;}
         else if(input.find("mean")==0) {offset=5; type=token_t::MEAN;}
+        else if(input.find("median")==0) {offset=7; type=token_t::MEDIAN;}
+        else if(input.find("stdev")==0) {offset=6; type=token_t::STDEV;}
         else if(input.find("rndint")==0) {offset=7; type=token_t::RNDINT;}
         else if(input.find("rndsel")==0) {offset=7; type=token_t::RNDSEL;}
         else return token_t::INVALID;
@@ -348,7 +357,7 @@ class token
     {
         if(type==token_t::NUMBER || type==token_t::VARIABLE || type==token_t::CONSTANT) return tokenCategory_t::NUMBER;
         else if(type==token_t::SUBEXPR ||
-                type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT || type==token_t::ABS|| type==token_t::MAX|| type==token_t::MIN||
+                type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT || type==token_t::ABS|| type==token_t::MAX|| type==token_t::MIN||type==token_t::MEDIAN||type==token_t::STDEV||type==token_t::GCF||type==token_t::LCM||
                 type==token_t::LOGARGLEFT || type==token_t::LOGARGRIGHT || type==token_t::MEAN || type==token_t::RNDINT || type==token_t::RNDSEL) return tokenCategory_t::SUBEXPR;
         else if(type==token_t::FUNCTION) return tokenCategory_t::FUNCTION;
         else return tokenCategory_t::OPERATOR;
@@ -400,6 +409,25 @@ class token
     {
         return tokenCategory;
     }
+    template <typename T>
+    size_t makeInteger(T xValue=NAN)
+    {
+        if(tokenValue.find(".")==std::string::npos) return std::string::npos;
+        if(tokenCategory==tokenCategory_t::NUMBER)
+        {
+            if(tokenType==token_t::VARIABLE)
+            {
+                std::runtime_error("Tried to make variable integer");
+            }
+            else
+            {
+                size_t decimalPlaces=tokenValue.length()-tokenValue.find(".");
+                tokenValue.erase(tokenValue.find("."),1);
+                return decimalPlaces;
+            }
+        }
+        else std::runtime_error("Tried to make non-number integer");
+    }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -414,10 +442,14 @@ template <typename T = cpp_dec_float_100> T evaluateUnary(token&, token&, const 
 template <typename T = cpp_dec_float_100> T evaluateBinary(token&, token&, token&, const T xValue);
 
 template <typename T = cpp_dec_float_100> T evaluateMean(token &arg, const T xValue);
+template <typename T = cpp_dec_float_100> T evaluateMedian(token &arg, const T xValue);
+template <typename T = cpp_dec_float_100> T evaluateStdev(token &arg, const T xValue);
 template <typename T = cpp_dec_float_100> T evaluateRndsel(token &arg, const T xValue);
 template <typename T = cpp_dec_float_100> T evaluateMax(token &arg, const T xValue);
 template <typename T = cpp_dec_float_100> T evaluateLeast(token &arg, const T xValue);
 template <typename T = cpp_dec_float_100> void evaluateArgs(token &arg, const T xValue, std::vector<T>&intermediateResults);
+template <typename T = cpp_dec_float_100> T evaluateGcf(token &arg, const T xValue);
+template <typename T = cpp_dec_float_100> T evaluateLcm(token &arg, const T xValue);
 
 void parseMultiArgFunction(const std::string &input, std::vector<token> &tokens, const char* functionName, size_t &i, bool &inFunctionCall, size_t argCount=SIZE_MAX);
 
@@ -426,11 +458,6 @@ void parseMultiArgFunction(const std::string &input, std::vector<token> &tokens,
 
 int main(int argc, char** argv)
 {
-    // std::vector<token> testVector;
-    // std::string testString = "max(3,5,8)+2";
-    // parseMultiArgFunction(testString,testVector,"greatest",0);
-    // std::cout<<testVector.at(0).value()<<' '<<static_cast<int>(testVector.at(0).type());
-    
     std::string resultHistory;
     std::string previousResult{"nan"};
     bool firstPass{true};
@@ -604,6 +631,10 @@ int main(int argc, char** argv)
         }
         for(size_t i{}; i<equation.length(); i++)
         {
+            if(equation.find("grt(",i)==i) equation.insert(i+3,"*"); //Alias max because it causes getVariableArgs to mess up
+        }
+        for(size_t i{}; i<equation.length(); i++)
+        {
             if(equation.find("max(",i)==i) equation.replace(i,4,"grt("); //Alias max because it causes getVariableArgs to mess up
         }
         std::vector<token> tokens = getTokens(equation,previousResult);
@@ -648,6 +679,8 @@ int main(int argc, char** argv)
                 if(resultAsOSStream.str().find("nan")!=std::string::npos)
                 {
                     previousResult="nan";
+                    resultAsOSStream.str("");
+                    resultAsOSStream.clear();
                     continue;
                 }
                 else if(resultAsOSStream.str()=="-0")
@@ -722,7 +755,7 @@ void graph(const std::vector<point>&points, const cpp_dec_float_100 yMin, const 
     const cpp_dec_float_100 yMin5 = yMin*5;
     const cpp_dec_float_100 yRange=(abs(yMax)+abs(yMin))/options.xStep+abs(yMin5); //Absurd line
     cpp_dec_float_100 height=yRange+(1/(yRange+0.5))*700; //Trust
-    if(height>yRange*3) height=yRange+15;
+    if(height>yRange*6) height=yRange+15;
     
     const cpp_dec_float_100 length=points.size();
 
@@ -730,9 +763,9 @@ void graph(const std::vector<point>&points, const cpp_dec_float_100 yMin, const 
     if(options.xMin>=0) yAxisPos=LEFT;
     else if(options.xMax<=0) yAxisPos=RIGHT;
 
-    if(height>2000 || length>500)
+    if(height>10000 || length>5000)
     {
-        std::cout<<"\nToo many calculations for plotting.\n";
+        std::cout<<"\nGraph is too large.\n";
         return; 
     }
 
@@ -744,7 +777,7 @@ void graph(const std::vector<point>&points, const cpp_dec_float_100 yMin, const 
         for(size_t i{}; i<length; i++)
         {
             if(points.at(i).y==INFINITY || points.at(i).y==-INFINITY) return; //This should never trigger.
-            
+
             //Plot point
             else if((i<length-1&&((points.at(i+1).y)/options.xStep >= height/2-rows)&&(points.at(i).y)/options.xStep<=height/2-rows)||
                     (round((points.at(i).y)/options.xStep) == round(height/2-rows+options.xStep))||
@@ -759,11 +792,9 @@ void graph(const std::vector<point>&points, const cpp_dec_float_100 yMin, const 
             else if(i==0 && rows==0 && yAxisPos==LEFT) graphLine<<'^';
             else if(i==length-1 && rows==0 && yAxisPos==RIGHT) graphLine<<'^';
             else if(i==xClosestToZeroIndex && rows==0 && yAxisPos==ZERO) graphLine<<'^';
-
             else if(i==0 && yAxisPos==LEFT) graphLine<<'|';
             else if(i==length-1 && yAxisPos==RIGHT) graphLine<<'|';
             else if(i==xClosestToZeroIndex && rows>0 && yAxisPos==ZERO) graphLine<<'|';
-
             else graphLine<<' ';
             graphLine<<"  ";
 
@@ -813,10 +844,10 @@ void displayHelp(char arg)
 
     if(arg=='a' || arg=='f')
         std::cout<<"\nThis calculator takes an expression using numbers, rnd, rndint, ans<prev. result> +, -, *, /, ^ (or **), x, !, !!, % (mod), npk, nck, |expr|, (expr) or [expr] and these functions:\n"<<
-        "    root(denominator, enumerator), log(base,value), mean(arg,arg,arg,...), rndint(arg1,arg2), rndsel(arg,arg,arg,...), min(arg,arg,arg,...), max(arg,arg,arg,...)\n"<<
+        "    root(denominator, enumerator), log(base,value), mean(args), median(args), stdev(expected, args), gcf(args),lcm(args), rndint(arg1,arg2), rndsel(args), min(args), max(args)\n"<<
         "    sin, cos, tan, sec, cosec, cot, arcsin, arccos, arctan, arcsec, arccosec, arccot\n"<<
         "    sinh, cosh, tanh, sech, cosech, coth, arcsinh, arccosh, arctanh, arcsech, arccosech, arccoth\n"<<
-        "    floor, ceil, round, abs, ln\n\n";
+        "    floor, ceil, round, abs, ln, sign\n\n";
 
     if(arg=='a' || arg=='c')
         std::cout<<"\nConstants:"<<
@@ -846,7 +877,7 @@ bool isValidInput(const char c)
     return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'
             ||c==','||c=='e'||c=='s'||c=='i'||c=='n'||c=='c'||c=='a' ||c=='l'||c=='f'||c=='u'||c=='d'||c=='|'||c=='b'||c=='g'||c=='p'
             ||c=='u'||c=='h'||c=='m'||c=='%'||c=='k'||c=='['||c==']'||c=='h'||c=='G'||c=='H'||c==';'||c=='Z'||c=='U'||c=='E'||c=='R'
-            ||c=='N';
+            ||c=='N'||c=='v';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1030,8 +1061,13 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             else if(input.at(i)=='(') nestingLevel++;
         }
 
+        // Parse MultiArg Functions
         if(!inFunctionCall && input.find("mean(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"mean",i,inFunctionCall);
+        if(!inFunctionCall && input.find("median(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"median",i,inFunctionCall);
+        if(!inFunctionCall && input.find("stdev(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"stdev",i,inFunctionCall);
         if(!inFunctionCall && input.find("grt(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"grt",i,inFunctionCall);
+        if(!inFunctionCall && input.find("gcf(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"gcf",i,inFunctionCall);
+        if(!inFunctionCall && input.find("lcm(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"lcm",i,inFunctionCall);
         if(!inFunctionCall && input.find("min(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"min",i,inFunctionCall);
         if(!inFunctionCall && input.find("rndsel(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"rndsel",i,inFunctionCall);
         if(!inFunctionCall && input.find("rndint(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"rndint",i,inFunctionCall,2);
@@ -1062,6 +1098,8 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             else if (input.find("ans",i)==i) {currentToken=lastSeenResult; i+=2;}
 
             //Functions
+
+            else if (input.find("sign",i)==i) {currentToken="sign"; i+=3;}
 
             else if (input.find("asinh",i)==i) {currentToken="asinh"; i+=4;}
             else if (input.find("acosh",i)==i) {currentToken="acosh"; i+=4;}
@@ -1363,34 +1401,18 @@ T calculation(std::vector<token> tokens, const T xValue, const bool resetInvalid
             if(pass==SUBEXPRESSIONS)
             {
                 T evaluatedSubexpr{};
-                if(tokens.at(i).type()==token_t::SUBEXPR)
-                {
-                    evaluatedSubexpr=calculation(getTokens(tokens.at(i).value()), xValue);
-                }
-                else if(tokens.at(i).type()==token_t::MEAN)
-                {
-                    evaluatedSubexpr=evaluateMean(tokens.at(i), xValue);
-                }
-                else if(tokens.at(i).type()==token_t::MAX)
-                {
-                    evaluatedSubexpr=evaluateMax(tokens.at(i), xValue);
-                }
-                else if(tokens.at(i).type()==token_t::MIN)
-                {
-                    evaluatedSubexpr=evaluateLeast(tokens.at(i), xValue);
-                }
-                else if(tokens.at(i).type()==token_t::RNDSEL)
-                {
-                    evaluatedSubexpr=evaluateRndsel(tokens.at(i), xValue);
-                }
-                else if(tokens.at(i).type()==token_t::RNDINT)
-                {
-                    evaluatedSubexpr=evaluateRndint(tokens.at(i), xValue);
-                }
-                else if(tokens.at(i).type()==token_t::ABS)
-                {
-                    evaluatedSubexpr=evaluateAbs(tokens.at(i), xValue);
-                }
+                if(tokens.at(i).type()==token_t::SUBEXPR) evaluatedSubexpr=calculation(getTokens(tokens.at(i).value()), xValue);
+                else if(tokens.at(i).type()==token_t::MEAN) evaluatedSubexpr=evaluateMean(tokens.at(i), xValue);
+                else if(tokens.at(i).type()==token_t::MEDIAN) evaluatedSubexpr=evaluateMedian(tokens.at(i), xValue);
+                else if(tokens.at(i).type()==token_t::STDEV) evaluatedSubexpr=evaluateStdev(tokens.at(i), xValue);
+                else if(tokens.at(i).type()==token_t::MAX) evaluatedSubexpr=evaluateMax(tokens.at(i), xValue);
+                else if(tokens.at(i).type()==token_t::GCF) evaluatedSubexpr=evaluateGcf(tokens.at(i), xValue);
+                else if(tokens.at(i).type()==token_t::LCM) evaluatedSubexpr=evaluateLcm(tokens.at(i), xValue);
+                else if(tokens.at(i).type()==token_t::MIN) evaluatedSubexpr=evaluateMin(tokens.at(i), xValue);
+                else if(tokens.at(i).type()==token_t::RNDSEL) evaluatedSubexpr=evaluateRndsel(tokens.at(i), xValue);
+                else if(tokens.at(i).type()==token_t::RNDINT) evaluatedSubexpr=evaluateRndint(tokens.at(i), xValue);
+                else if(tokens.at(i).type()==token_t::ABS) evaluatedSubexpr=evaluateAbs(tokens.at(i), xValue);
+
                 else if(tokens.at(i).type()==token_t::ROOTARGRIGHT)
                 {
                     if(i==0) evaluatedSubexpr=evaluateRoot(token("0"),tokens.at(i), xValue);
@@ -1604,13 +1626,118 @@ T evaluateMean(token &arg, const T xValue)
 {
     T result{};
     std::vector<T> intermediateResults;
-    evaluateArgs(arg,xValue,intermediateResults);   for(size_t i{}; i<intermediateResults.size(); i++)
+    evaluateArgs(arg,xValue,intermediateResults);   
+    for(size_t i{}; i<intermediateResults.size(); i++)
     {
         result+=intermediateResults.at(i);
     }
     result=result/(intermediateResults.size());
 
     return result;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template <typename T>
+T evaluateMedian(token &arg, const T xValue)
+{
+    std::vector<T> intermediateResults;
+    evaluateArgs(arg,xValue,intermediateResults);
+
+    std::sort(intermediateResults.begin(), intermediateResults.end());
+
+    if(intermediateResults.size()%2!=0) return intermediateResults.at(intermediateResults.size()/2);
+    else return (intermediateResults.at(intermediateResults.size()/2-1)+intermediateResults.at(intermediateResults.size()/2))/2;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template <typename T>
+T evaluateStdev(token &arg, const T xValue)
+{
+    std::vector<T> intermediateResults;
+    evaluateArgs(arg,xValue,intermediateResults);
+
+    std::sort(intermediateResults.begin(), intermediateResults.end());
+
+    if(intermediateResults.size()<2)
+    {
+        std::cerr<<"Did not supply at least 2 arguments for stdev()\n";
+        return NAN;
+    }
+    T summed{};
+    for(size_t i{1}; i<intermediateResults.size(); i++)
+    {
+        summed=summed+pow(intermediateResults.at(i)-intermediateResults.at(0),2.0);
+    }
+    return sqrt(summed/intermediateResults.size()); // Intellegre
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template <typename T>
+T evaluateLcm(token &arg, const T xValue)
+{
+    std::ostringstream numberAsOSStream;
+    std::vector<T> intermediateResults;
+    T tempValue{};
+    T numLeft{};
+    T numRight{};
+    std::string numberAsString;
+    evaluateArgs(arg,xValue,intermediateResults);
+    for(size_t i{}; i<intermediateResults.size(); i++)
+    {
+        if(intermediateResults.at(i)<0) intermediateResults.at(i)=-intermediateResults.at(i);
+    }
+    numLeft=intermediateResults.at(0); //a
+    numRight=intermediateResults.at(1); //b
+    while(intermediateResults.at(1)!=0)
+    {
+        tempValue=intermediateResults.at(1); //b
+        intermediateResults.at(1)=boost::math::ccmath::fmod(intermediateResults.at(0),intermediateResults.at(1));
+        intermediateResults.at(0)=tempValue; 
+    }
+    intermediateResults.at(0)=(numLeft*numRight)/intermediateResults.at(0);
+    intermediateResults.erase(intermediateResults.begin()+1);
+    if(intermediateResults.size()>=2)
+    {
+        numberAsOSStream<<"lcm(";
+        for(size_t i{}; i<intermediateResults.size(); i++)
+        {
+            numberAsOSStream<<intermediateResults.at(i);
+            if(i!=intermediateResults.size()-1) numberAsOSStream<<',';
+        }
+        token newArg{numberAsOSStream.str()};
+        intermediateResults.at(0) = evaluateLcm(newArg,xValue);
+    }
+    return intermediateResults.at(0);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template <typename T>
+T evaluateGcf(token &arg, const T xValue)
+{
+    std::ostringstream numberAsOSStream;
+    std::vector<T> intermediateResults;
+    T tempValue{};
+    std::string numberAsString;
+    evaluateArgs(arg,xValue,intermediateResults);
+    for(size_t i{}; i<intermediateResults.size(); i++)
+    {
+        if(intermediateResults.at(i)<0) intermediateResults.at(i)=-intermediateResults.at(i);
+    }
+    while(intermediateResults.size()>=2)
+    {
+        while(intermediateResults.at(1)!=0)
+        {
+            tempValue=intermediateResults.at(1);
+            intermediateResults.at(1)=boost::math::ccmath::fmod(intermediateResults.at(0),intermediateResults.at(1));
+            intermediateResults.at(0)=tempValue; 
+        }
+        intermediateResults.erase(intermediateResults.begin()+1);
+    }
+    return intermediateResults.at(0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1695,7 +1822,7 @@ T evaluateMax(token &arg, const T xValue)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
-T evaluateLeast(token &arg, const T xValue)
+T evaluateMin(token &arg, const T xValue)
 {
     std::vector<T> intermediateResults;
     std::string currentToken;
@@ -1766,6 +1893,13 @@ T evaluateUnary(token &numberString, token &operation, const T xValue)
     T result{1};
     if(operation.value()=="-") return -number;
 
+    if(operation.value()=="sign")
+    {
+        if(number==0) return 0;
+        if(number>0) return 1;
+        if(number<0) return -1;
+    }
+
     if(operation.value()=="sin") return sin(fmod(number,2*pi<T>()));
     if(operation.value()=="cos") return cos(fmod(number,2*pi<T>()));
     if(operation.value()=="tan") return tan(fmod(number,pi<T>()));
@@ -1828,10 +1962,10 @@ T evaluateUnary(token &numberString, token &operation, const T xValue)
 bool isNumber(const std::string &input)
 {
     for(size_t i{}; i<input.length(); i++) if((input.at(i)<'0' || input.at(i)>'9') && 
-                                             input.at(i)!='e' && 
-                                             input.at(i)!='.' &&
-                                             input.at(i)!='+' &&
-                                             input.at(i)!='-') return false;
+                                               input.at(i)!='e' && 
+                                               input.at(i)!='.' &&
+                                               input.at(i)!='+' &&
+                                               input.at(i)!='-') return false;
     uint dotCount{};
     uint eCount{};
 
