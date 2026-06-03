@@ -67,6 +67,7 @@ enum class token_t
     SUBEXPR,
     VARIABLE,
     CONSTANT,
+    ASSIGNMENT,
     INVALID
 };
 
@@ -75,7 +76,8 @@ enum class tokenCategory_t
     NUMBER,
     FUNCTION,
     SUBEXPR,
-    OPERATOR
+    OPERATOR,
+    ASSIGNMENT
 };
 
 bool isNumberPart(char input);
@@ -85,14 +87,9 @@ bool isNumber(const std::string &input);
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct point
 {
-    long double x{};
-    long double y{};
-    point(long double inX, long double inY)
-    {
-        this->x=inX;
-        if(inY==INFINITY || inY==-INFINITY) this->y=NAN;
-        else this->y=inY;
-    }
+    const long double x{};
+    const long double y{};
+    point(long double inX, long double inY) : x(inX), y(inY){}
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -103,6 +100,23 @@ struct options
     cpp_dec_float_100 xMax{};  
     cpp_dec_float_100 xStep{}; //Hey, reference
 };
+
+struct constant
+{
+    constant(std::string inName, std::string inValue) : name(inName), value(inValue){}
+    std::string name;
+    std::string value;
+};
+
+bool sortConstantsByNameLength(constant  name1, constant name2) {return name1.name.length()>name2.name.length();}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+namespace calculator
+{
+    std::vector<constant> userConstants;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class token
@@ -138,12 +152,17 @@ class token
         else if(isSubexpr(value)) return token_t::SUBEXPR;
         else if(isAbs(value)) return token_t::ABS;
         else if(value=="x") return token_t::VARIABLE;
+        else if(isAssignment(value)) return token_t::ASSIGNMENT;
         else return isMultiArgFunction(value);
         std::unreachable();
     }
     ///////////////////////////////////////////////
     static bool isConstant(const std::string &input)
     {
+        for(size_t i{}; i<calculator::userConstants.size(); i++)
+        {
+            if(input==calculator::userConstants.at(i).name) return true;
+        }
         return input=="pi" 
             || input=="e" 
             || input=="a" //Is it in the game?
@@ -191,6 +210,12 @@ class token
     static bool isMultiCharUnary(const std::string &input)
     {
         return input=="!!";
+    }
+
+    static bool isAssignment(const std::string &input)
+    {
+        if(input.find("let")==0 && input.find('=')!=std::string::npos) return true;
+        else return false;
     }
 
     static bool isFunction(const std::string &input)
@@ -350,6 +375,10 @@ class token
         if(input=="Na") return "6.02214076e+23";
         if(input=="rnd") return "rnd"; // These are replaced later
         if(input=="rndint") return "rndint";
+        for(size_t i{}; i<calculator::userConstants.size(); i++)
+        {
+            if(input==calculator::userConstants.at(i).name) return calculator::userConstants.at(i).value;
+        }
         std::unreachable();
     }
     ///////////////////////////////////////////////
@@ -360,6 +389,7 @@ class token
                 type==token_t::ROOTARGLEFT || type==token_t::ROOTARGRIGHT || type==token_t::ABS|| type==token_t::MAX|| type==token_t::MIN||type==token_t::MEDIAN||type==token_t::STDEV||type==token_t::GCF||type==token_t::LCM||
                 type==token_t::LOGARGLEFT || type==token_t::LOGARGRIGHT || type==token_t::MEAN || type==token_t::RNDINT || type==token_t::RNDSEL) return tokenCategory_t::SUBEXPR;
         else if(type==token_t::FUNCTION) return tokenCategory_t::FUNCTION;
+        else if(type==token_t::ASSIGNMENT) return tokenCategory_t::ASSIGNMENT;
         else return tokenCategory_t::OPERATOR;
     }
     ///////////////////////////////////////////////
@@ -409,6 +439,25 @@ class token
     {
         return tokenCategory;
     }
+    static void addConstant(constant newConstant)
+    {
+        for(size_t i{}; i<calculator::userConstants.size(); i++)
+        {
+            if(newConstant.name==calculator::userConstants.at(i).name) 
+            {
+                calculator::userConstants.at(i).value=newConstant.value;
+                std::sort(calculator::userConstants.begin(), calculator::userConstants.end(), sortConstantsByNameLength);
+                return;
+            }
+        }
+        calculator::userConstants.emplace_back(newConstant);
+        std::sort(calculator::userConstants.begin(), calculator::userConstants.end(), sortConstantsByNameLength);
+        return;
+    }
+    std::vector<constant> userConstants()
+    {
+        return calculator::userConstants;
+    }
     template <typename T>
     size_t makeInteger(T xValue=NAN)
     {
@@ -431,7 +480,7 @@ class token
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<token> getTokens(const std::string&, const std::string &previousResult="nan");
+std::vector<token> getTokens(const std::string&, const std::string &previousResult="nan", bool resetFirstRun=false);
 void getVariableArgs(std::vector<token>&, options&);
 void graph(const std::vector<point>&points, const cpp_dec_float_100 yMin, const cpp_dec_float_100 yMax, const uint xClosestToZeroIndex, const options &options);
 template <typename T = cpp_dec_float_100> T calculation(std::vector<token>, const T xValue,const bool resetInvalid=false);
@@ -453,6 +502,8 @@ template <typename T = cpp_dec_float_100> T evaluateLcm(token &arg, const T xVal
 
 void parseMultiArgFunction(const std::string &input, std::vector<token> &tokens, const char* functionName, size_t &i, bool &inFunctionCall, size_t argCount=SIZE_MAX);
 
+int mainLoop(options &options, bool passedInAsArg,bool passedCalculationsFile, std::string &equation, std::string &resultHistory);
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -460,16 +511,19 @@ int main(int argc, char** argv)
 {
     std::string resultHistory;
     std::string previousResult{"nan"};
-    bool firstPass{true};
     options options;
     std::ostringstream resultAsOSStream;
     resultAsOSStream.precision(100);
     std::cout.precision(100);
+    bool firstPass{true};
     bool passedInAsArg{};
+    bool passedCalculationsFile{};
     std::string equation{};
     if(argc>1)
     {
         equation+=argv[1];
+        if(equation=="") goto skipNonFileArgs;
+        if(argc>5) goto skipNonFileArgs;
         if(equation.length()>2 && equation.at(0)=='-' && equation.at(1)=='-' && (equation.at(2)=='h' || equation.at(2)=='H'))
         {
             displayHelp();
@@ -508,11 +562,14 @@ int main(int argc, char** argv)
             passedInAsArg=true;
         }
     }
+    for(size_t i{}; i<equation.length(); i++)
+    {
+        if(equation.find("max(",i)==i) equation.replace(i,4,"grt("); //Alias max because it causes getVariableArgs to mess up
+    }
     if(equation.find('x')!=std::string::npos)
     {
         if(argc>4)
         {
-            
             if(isNumber(argv[2])) options.xMin=static_cast<cpp_dec_float_100>(argv[2]);
             else {std::cerr<<"\nYou did not enter a number\n"; return 0;}
             if(isNumber(argv[3])) options.xMax=static_cast<cpp_dec_float_100>(argv[3]);
@@ -529,33 +586,93 @@ int main(int argc, char** argv)
             if(options.xMin>=options.xMax) {std::cerr<<"\nInvalid range\n"; return 0;}
             if(options.xMax-options.xMin>options.xStep*1000) {std::cerr<<"\nToo many calculations requested\n"; return 0;}
         }
-        else {std::cerr<<"\nIncluded variable but did not specify all of the following: min, max, step/graphing(g or y (close zoom))\n"; return 0;}
-    }
+        else std::cerr<<"\nIncluded variable but did not specify all of the following: min, max, step/graphing(g or y (close zoom))\n"; return 0;
 
+    }
+    skipNonFileArgs:
+    int returnValue{};
+    if(argc>5)
+    {
+        passedCalculationsFile=true;
+        std::ifstream calculationsFile;
+        calculationsFile.open(argv[5]);
+        if(passedCalculationsFile)
+        {
+            while(std::getline(calculationsFile,equation))
+            {
+                for(size_t i{}; i<equation.length(); i++)
+                {
+                    if(equation.find("max(",i)==i) equation.replace(i,4,"grt("); //Alias max because it causes getVariableArgs to mess up
+                }
+                if(equation.find('x')!=std::string::npos)
+                    {
+                        if(isNumber(argv[2])) options.xMin=static_cast<cpp_dec_float_100>(argv[2]);
+                        else {std::cerr<<"\nYou did not enter a number\n"; return 0;}
+                        if(isNumber(argv[3])) options.xMax=static_cast<cpp_dec_float_100>(argv[3]);
+                        else {std::cerr<<"\nYou did not enter a number\n"; return 0;}
+                        if(argv[4][0]=='y' || argv[4][0]=='Y' || argv[4][0]=='g' || argv[4][0]=='G')
+                        {
+                            options.graph=true;
+                            if(argv[4][0]=='g' || argv[4][0]=='G') options.xStep=0.2;
+                            else options.xStep=0.05;
+                        }
+                        else if(isNumber(argv[4])) options.xStep=static_cast<cpp_dec_float_100>(argv[4]);
+                        else {std::cerr<<"\nYou did not enter a number\n"; return 0;}
+                        
+                        if(options.xMin>=options.xMax) {std::cerr<<"\nInvalid range\n"; return 0;}
+                        if(options.xMax-options.xMin>options.xStep*1000) {std::cerr<<"\nToo many calculations requested\n"; return 0;}
+                    }
+
+                if(equation.at(0)!='#') returnValue += mainLoop(options, true, true, equation, resultHistory); //Lines with # are comments
+                if(calculationsFile.peek()=='\n')
+                {
+                    for(; calculationsFile.peek()=='\n'; calculationsFile.seekg(static_cast<size_t>(calculationsFile.tellg())+1));
+                }
+            }
+            calculationsFile.close();
+            equation="";
+        }
+    }
+    if(!returnValue) mainLoop(options, passedInAsArg, false, equation, resultHistory);
+
+    std::cout<<'\n';
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int mainLoop(options &options, bool passedInAsArg,bool passedCalculationsFile, std::string &equation, std::string &resultHistory)
+{
+    bool firstPass{};
+    std::ostringstream resultAsOSStream;
+    std::string previousResult="nan";
     while(!std::cin.eof())
     {
         std::cout.precision(100);
         resultAsOSStream.precision(100);
-        if(equation!="") goto passedInAsArg;
+        if(passedCalculationsFile) goto passedInFile;
+        if(passedInAsArg) goto passedInAsArg;
         if(firstPass) std::cout << "Type your equation (? for help, q to quit):\n=> ";
         else std::cout << "Type your equation:\n=> ";
         std::getline(std::cin, equation);
         std::cout<<'\n';
 
+        passedInFile:
+        if(equation.find('#') != std::string::npos) equation.erase(equation.find('#'));
         if(equation.find("how do i exit vim")!=std::string::npos||equation.find("how to exit vim")!=std::string::npos)
         {
             std::cout<<":q\n\n";
-            return 0;
+            return 1;
         }
 
         if(equation.length()==0) continue;
-        if(equation.at(0)=='q' || equation.at(0)=='Q' || equation.find("exit")!=std::string::npos || equation.find("quit")!=std::string::npos) break;
+        if(equation.at(0)=='q' || equation.at(0)=='Q' || equation.find("exit")!=std::string::npos || equation.find("quit")!=std::string::npos) return 1;
         if(equation.at(0)=='?')
         {
             if(equation.length()>1 && (equation.at(1)=='a' || equation.at(1)=='f' || equation.at(1)=='c' || equation.at(1)=='n' || equation.at(1)=='h'))
             {
                 displayHelp(equation.at(1));
-
             }
             else
             {
@@ -629,7 +746,7 @@ int main(int argc, char** argv)
             equation.clear();
             continue;
         }
-        for(size_t i{}; i<equation.length(); i++)
+        for(size_t i{}; i<equation.length() && !passedInAsArg; i++)
         {
             if(equation.find("grt(",i)==i) equation.insert(i+3,"*"); //Alias max because it causes getVariableArgs to mess up
         }
@@ -638,6 +755,48 @@ int main(int argc, char** argv)
             if(equation.find("max(",i)==i) equation.replace(i,4,"grt("); //Alias max because it causes getVariableArgs to mess up
         }
         std::vector<token> tokens = getTokens(equation,previousResult);
+
+        for(size_t i{}; i<tokens.size(); i++)
+        {
+            if(tokens.at(i).type()==token_t::ASSIGNMENT)
+            {
+                if(passedInAsArg && !passedCalculationsFile)
+                {
+                    std::cerr<<"\nAssigning constants from command line would be pointless.\n";
+                    return 0;
+                }
+                size_t j{};
+                std::vector<token> assignmentTokens;
+
+                std::vector<token> nameCheckTokens{getTokens(tokens.at(i).value().substr(3,tokens.at(i).value().length()-4))};
+                bool invalidName{};
+                for(size_t h{}; h<nameCheckTokens.size(); h++)
+                {
+                    if(nameCheckTokens.at(h).typeCategory()==tokenCategory_t::FUNCTION || nameCheckTokens.at(h).typeCategory()==tokenCategory_t::OPERATOR || nameCheckTokens.at(h).type()==token_t::NUMBER)
+                    {
+                        std::cerr<<"Invalid constant name\n\n";
+                        tokens.clear();
+                        invalidName=true;
+                        break;
+                    }
+                }
+                if(invalidName) break;
+                for(j=i+1; j<tokens.size() && tokens.at(j).type()!=token_t::ASSIGNMENT && tokens.at(j).type()!=token_t::VARIABLE; j++)
+                {
+                    assignmentTokens.emplace_back(tokens.at(j));
+                }
+                resultAsOSStream<<calculation<cpp_dec_float_100>(assignmentTokens, NAN);
+                if(resultAsOSStream.str().find("nan")==std::string::npos) tokens.at(0).addConstant(constant(tokens.at(i).value().substr(3,tokens.at(i).value().length()-4),resultAsOSStream.str()));
+                std::cout<<"Assigned \"" << tokens.at(i).value().substr(3,tokens.at(i).value().length()-4) << "\" value " << resultAsOSStream.str()<<"\n\n";
+                tokens.erase(tokens.begin()+i,tokens.begin()+j-i);
+                i=j;
+                previousResult=resultAsOSStream.str();
+                resultAsOSStream.str("");
+                resultAsOSStream.clear();
+            }
+        }
+        if(tokens.size()==0) goto cleanup;
+
         if(!passedInAsArg)
         {
             getVariableArgs(tokens, options);
@@ -728,7 +887,7 @@ int main(int argc, char** argv)
         std::cout<<"\n\n";
 
         if(options.xMin==options.xMax) resultHistory+='\n'+equation+" = "+previousResult;
-
+        cleanup:
         resultAsOSStream.str("");
         resultAsOSStream.clear();
         equation.clear();
@@ -739,13 +898,12 @@ int main(int argc, char** argv)
         options.xStep=0;
         firstPass=false;
         calculation<double>(std::vector<token>(),NAN,true); //Reset seenInvalid in calculation, so if an invalid expression is passed on the next iteration, it prints the error text
+        getTokens("",previousResult,true);
         if(passedInAsArg) break;
     }
-    std::cout<<'\n';
     return 0;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //This function is ugly.
@@ -854,7 +1012,8 @@ void displayHelp(char arg)
         "\n    Mathematics:" <<
         "\n        pi, e, phi, inf, eul<Euler-Mascheroni>, tau<2pi>, rad<180/pi>, deg<pi/180>, prc, ppm, ppb, ppt" <<
         "\n    Physics:"<<
-        "\n        c, G, g, me, H0, ec<e>, Z0, U0, E0, h, a, ma, R, o, Na\n\n";
+        "\n        c, G, g, me, H0, ec<e>, Z0, U0, E0, h, a, ma, R, o, Na\n"<<
+        "\nYou may also define your own constants using the following syntax: let<name>=<expr>";
 
     if(arg=='a' || arg=='h' || arg=='n')
         std::cout<<"\nNotes and Hints:\n"<<
@@ -866,7 +1025,7 @@ void displayHelp(char arg)
         "    root() and log() may be called with one argument, with defaults for the other. Example: root(4) = 2, log(10) = 1.\n"<<
         "    Input from the command line is also accepted, though you may need to preface some characters with \\ to prevent your terminal from interpreting them.\n"<<
         "    Example: \"root(5\\!\\!,10\\!\\!)\" -> \"root(5!!, 10!!)\"\n"<<
-        "    Command line input values: equation lowestX highestX stepSizeX or graphing (g/y, y for high zoom)\n\n";
+        "    Command line input values: equation lowestX highestX stepSizeX or graphing (g/y, y for high zoom), calculations file path\n\n";
     return;
 }
 
@@ -874,10 +1033,12 @@ void displayHelp(char arg)
 
 bool isValidInput(const char c)
 {
-    return (c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'
+    return !(c=='\t' || c=='\n' || c==' ');
+
+            /*(c>='0'&&c<='9')||c=='.'||c=='x'||c=='+'||c=='-'||c=='*'||c=='/'||c=='('||c==')'||c=='^'||c=='!'||c=='r'||c=='o'||c=='t'
             ||c==','||c=='e'||c=='s'||c=='i'||c=='n'||c=='c'||c=='a' ||c=='l'||c=='f'||c=='u'||c=='d'||c=='|'||c=='b'||c=='g'||c=='p'
             ||c=='u'||c=='h'||c=='m'||c=='%'||c=='k'||c=='['||c==']'||c=='h'||c=='G'||c=='H'||c==';'||c=='Z'||c=='U'||c=='E'||c=='R'
-            ||c=='N'||c=='v';
+            ||c=='N'||c=='v'||c=='='*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -934,8 +1095,14 @@ void parseMultiArgFunction(const std::string &input, std::vector<token> &tokens,
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<token> getTokens(const std::string &input, const std::string& previousResult)
+std::vector<token> getTokens(const std::string &input, const std::string& previousResult, bool resetFirstRun)
 {
+    static bool firstRun{true};
+    if(resetFirstRun)
+    {
+        firstRun=true;
+        return std::vector<token>();
+    }
     static std::string_view lastSeenResult{};
     if(previousResult!="nan") lastSeenResult=previousResult;
     int nestingLevel{};
@@ -944,6 +1111,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
     uint startOfFunction{};
     uint endOfFirstArg{};
     std::vector<token> tokens{};
+    
     std::string currentToken{};
     bool fixOffByOne{};
     bool inFunctionCall{};
@@ -1063,14 +1231,14 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
 
         // Parse MultiArg Functions
         if(!inFunctionCall && input.find("mean(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"mean",i,inFunctionCall);
-        if(!inFunctionCall && input.find("median(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"median",i,inFunctionCall);
-        if(!inFunctionCall && input.find("stdev(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"stdev",i,inFunctionCall);
-        if(!inFunctionCall && input.find("grt(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"grt",i,inFunctionCall);
-        if(!inFunctionCall && input.find("gcf(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"gcf",i,inFunctionCall);
-        if(!inFunctionCall && input.find("lcm(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"lcm",i,inFunctionCall);
-        if(!inFunctionCall && input.find("min(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"min",i,inFunctionCall);
-        if(!inFunctionCall && input.find("rndsel(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"rndsel",i,inFunctionCall);
-        if(!inFunctionCall && input.find("rndint(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"rndint",i,inFunctionCall,2);
+        else if(!inFunctionCall && input.find("median(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"median",i,inFunctionCall);
+        else if(!inFunctionCall && input.find("stdev(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"stdev",i,inFunctionCall);
+        else if(!inFunctionCall && input.find("grt(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"grt",i,inFunctionCall);
+        else if(!inFunctionCall && input.find("gcf(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"gcf",i,inFunctionCall);
+        else if(!inFunctionCall && input.find("lcm(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"lcm",i,inFunctionCall);
+        else if(!inFunctionCall && input.find("min(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"min",i,inFunctionCall);
+        else if(!inFunctionCall && input.find("rndsel(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"rndsel",i,inFunctionCall);
+        else if(!inFunctionCall && input.find("rndint(", i)==i) parseMultiArgFunction(input.substr(i),tokens,"rndint",i,inFunctionCall,2);
 
 
         // Parse Subexpression
@@ -1081,15 +1249,41 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             currentToken.push_back(input.at(i));
             if(nestingLevel==0 || i==input.length()-1) break;                
         }
+
+        // Parse assignment
+        if(currentToken=="" && !inFunctionCall && firstRun && input.find("let",i)==i && input.find('=',i)!=std::string::npos)
+        {
+            currentToken.append("let");
+            for(i+=3; i<input.length() && input.at(i)!='x' && input.at(i)!='='; i++) currentToken.push_back(input.at(i));
+            if(currentToken=="let")
+            {
+                currentToken.clear();
+                goto cleanup;
+            }
+            currentToken.push_back('=');
+        }
         
         // Parse other symbols
         if(currentToken=="" && !inFunctionCall)
         {
+            size_t j{};
+            for(; j<calculator::userConstants.size(); j++)
+            {
+                if(input.find(calculator::userConstants.at(j).name,i)==i)
+                {
+                    currentToken=calculator::userConstants.at(j).name;
+                    i+=calculator::userConstants.at(j).name.length()-1;
+                }
+            }
+            if(j)
+            {
+                if(currentToken!="") goto cleanup;
+            }
             if(input.at(i)=='+') currentToken='+';
             else if (input.at(i)=='-') currentToken='-';
             else if (input.at(i)=='^') currentToken='^';
             else if (input.at(i)=='/') currentToken='/';
-            else if (input.at(i)=='%') currentToken='%';
+            else if (input.at(i)=='%') currentToken='%'; 
             else if (input.find("mod",i)==i) {currentToken="mod"; i+=2;}
             else if (input.find("npk",i)==i) {currentToken="npk"; i+=2;}
             else if (input.find("nck",i)==i) {currentToken="nck"; i+=2;}
@@ -1237,6 +1431,7 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
             i--;
         }
 
+        cleanup:
         if(inFunctionCall) currentToken.clear();
         if(currentToken!="") tokens.emplace_back(currentToken);
         currentToken.clear();
@@ -1245,7 +1440,8 @@ std::vector<token> getTokens(const std::string &input, const std::string& previo
         logHasTwoArgs=false;
         startOfFunction=0;
     }
-
+    if(currentToken!="") tokens.emplace_back(currentToken);
+    if(firstRun) firstRun=false;
     return tokens;
 }
 
@@ -1968,6 +2164,7 @@ bool isNumber(const std::string &input)
                                                input.at(i)!='-') return false;
     uint dotCount{};
     uint eCount{};
+    bool seenMinus{};
 
     if(input=="inf") return true;
     if(input=="-inf") return true;
@@ -1976,7 +2173,12 @@ bool isNumber(const std::string &input)
     if(input=="e") return false;
     for(size_t i{}; i<input.length(); i++)
     {
-        if(input.at(0)=='-') continue;
+        if((seenMinus && input.at(i)=='-')||(i>0 && input.at(i)=='-')) return false;
+        if(input.at(0)=='-' && input.length()>1)
+        {
+            seenMinus=true;
+            continue;
+        }
         if(input.at(i)=='e') 
         {
             if(i+2<input.length() && input.at(i)=='e' && (input.at(i+1)=='+' || input.at(i+1)=='-') && std::isdigit(input.at(i+2))) i+=2;
